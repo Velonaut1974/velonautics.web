@@ -51,7 +51,7 @@ At the core of VELONAUTICS is a three-tier logic designed to prevent double coun
 ---
 
 ## 05. Documentation & Resources
-* **Whitepaper:** [Link to Paper v. 04.02.26]
+* **Whitepaper:** [Download PDF](whitepaper.pdf)
 * **System Architecture:** See `/docs/architecture.pdf`
 * **Contribution:** This repository is open for logic audits by maritime stakeholders.
 
