@@ -36,90 +36,120 @@
         </div>
       </div>
     </header>
-    
-<section style="padding: 80px 20px; max-width: 900px; margin: auto; font-family: sans-serif;">
-    <h2 style="color: #333; text-align: center; margin-bottom: 30px; font-size: 28px;">The Velonaut Concept</h2>
-    <p style="font-size: 18px; color: #444; line-height: 1.8; text-align: center; margin-bottom: 40px;">
-        Beyond simple compliance, the <strong>Velonaut</strong> acts as a central nervous system for maritime assets. It bridges the gap between physical operations and the digital carbon economy.
-    </p>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;">
-        <div style="padding: 20px;">
-            <h4 style="color: #0f64a9; margin-bottom: 10px;">Strategic Orchestration</h4>
-            <p style="font-size: 14px; color: #666; line-height: 1.6;">The Velonaut synchronizes operational data with evolving EU regulations, ensuring that every nautical mile contributes to both legal standing and commercial value.</p>
-        </div>
-        <div style="padding: 20px;">
-            <h4 style="color: #0f64a9; margin-bottom: 10px;">End-to-End Integrity</h4>
-            <p style="font-size: 14px; color: #666; line-height: 1.6;">By implementing "Integrity by Design", we move away from retroactive reporting towards real-time, auditable verification of every energy unit consumed.</p>
-        </div>
-        <div style="padding: 20px;">
-            <h4 style="color: #0f64a9; margin-bottom: 10px;">Asset Evolution</h4>
-            <p style="font-size: 14px; color: #666; line-height: 1.6;">We transform ships from mere cost centers of emissions into active participants of the voluntary carbon market through high-quality insetting.</p>
+<section style="padding: 60px 20px; background-color: #f4f7f9; border-bottom: 1px solid #eaeaea; font-family: sans-serif;">
+    <div style="max-width: 900px; margin: auto;">
+        <h2 style="text-align: center; color: #0f64a9; margin-bottom: 30px; font-size: 28px;">The Regulatory Collision</h2>
+        <p style="text-align: center; max-width: 700px; margin: 0 auto 40px auto; color: #555; line-height: 1.6;">
+            The industry faces a systemic risk: Synchronizing mass-based regimes with intensity-based metrics. 
+            VELONAUTICS provides the decision infrastructure to solve this collision.
+        </p>
+        
+        <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center;">
+            <div style="flex: 1; min-width: 280px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer;" onclick="openModal('ets')">
+                <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px; font-size: 18px;">EU-ETS (Mass)</h3>
+                <p style="color: #666; font-size: 13px;">Focus: Absolute Emissions. <br><span style="color:#0f64a9">Click to expand details →</span></p>
+            </div>
+            <div style="flex: 1; min-width: 280px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer;" onclick="openModal('fueleu')">
+                <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px; font-size: 18px;">FuelEU (Intensity)</h3>
+                <p style="color: #666; font-size: 13px;">Focus: GHG Intensity. <br><span style="color:#0f64a9">Click to expand details →</span></p>
+            </div>
         </div>
     </div>
 </section>
-    <section style="padding: 80px 20px; max-width: 1100px; margin: auto;">
-      <h2 style="color: #333; text-align: center; margin-bottom: 50px;">The Triple-Layer Architecture</h2>
-      
-      <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center;">
+
+<section style="padding: 80px 20px; max-width: 900px; margin: auto; font-family: sans-serif;">
+    <h2 style="text-align: center; color: #333; margin-bottom: 40px;">The Triple-Layer Architecture</h2>
+    
+    <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+        <div style="border-bottom: 1px solid #ddd;">
+            <button onclick="toggleAccordion('layer1')" style="width: 100%; padding: 20px; background: #f9f9f9; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold;">
+                Layer I: Compliance <span>+</span>
+            </button>
+            <div id="layer1" style="display: none; padding: 20px; color: #555; line-height: 1.6; background: #fff;">
+                Active allocation of mandatory obligations. Specialized orchestration for EU-ETS mass-based and FuelEU intensity-based regimes. This is the regulatory safety net.
+            </div>
+        </div>
+
+        <div style="border-bottom: 1px solid #ddd; border-left: 5px solid #0f64a9;">
+            <button onclick="toggleAccordion('layer2')" style="width: 100%; padding: 20px; background: #fff; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; color: #0f64a9;">
+                Layer II: Isolation (The Firewall) <span>+</span>
+            </button>
+            <div id="layer2" style="display: none; padding: 20px; color: #555; line-height: 1.6; background: #fff;">
+                Our core innovation: Digital Joule-tagging. 
+                <p style="margin: 15px 0; padding: 15px; background: #eef6fc; color: #0f64a9; border-radius: 4px; font-weight: bold;">
+                    "It guarantees that one Joule of green energy is never sold twice."
+                </p>
+                Any unit used for compliance is irreversibly locked to prevent double counting.
+            </div>
+        </div>
+
+        <div>
+            <button onclick="toggleAccordion('layer3')" style="width: 100%; padding: 20px; background: #f9f9f9; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold;">
+                Layer III: Carbon Bank <span>+</span>
+            </button>
+            <div id="layer3" style="display: none; padding: 20px; color: #555; line-height: 1.6; background: #fff;">
+                Economic attribution of audited additionality. Transforming verified reductions into high-integrity Scope 3 Insetting assets for the voluntary market.
+            </div>
+        </div>
+    </div>
+</section>
+
+<section style="padding: 80px 20px; background-color: #333; color: white; font-family: sans-serif; text-align: center;">
+    <h2 style="margin-bottom: 40px; font-size: 28px;">The Velonaut Concept</h2>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px; margin: auto;">
         
-        <div style="flex: 1; min-width: 300px; border: 1px solid #ddd; padding: 30px; border-radius: 4px; background: #f9f9f9;">
-          <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Layer I: Compliance</h3>
-          <p style="color: #666; font-size: 15px; line-height: 1.6;">
-            Active allocation of mandatory obligations. Specialized orchestration for EU-ETS mass-based and FuelEU intensity-based regimes.
-          </p>
-          <span style="font-size: 11px; color: #0f64a9; font-weight: bold; text-transform: uppercase;">The Safety Net</span>
+        <div onclick="openModal('strategic')" style="background: #444; padding: 30px; border-radius: 8px; width: 250px; cursor: pointer; border: 1px solid #555;">
+            <h4 style="color: #fff; margin-bottom: 10px;">Strategic Orchestration</h4>
+            <small style="color: #0f64a9; text-transform: uppercase;">Discover →</small>
+        </div>
+        
+        <div onclick="openModal('integrity')" style="background: #444; padding: 30px; border-radius: 8px; width: 250px; cursor: pointer; border: 1px solid #555;">
+            <h4 style="color: #fff; margin-bottom: 10px;">End-to-End Integrity</h4>
+            <small style="color: #0f64a9; text-transform: uppercase;">Discover →</small>
+        </div>
+        
+        <div onclick="openModal('evolution')" style="background: #444; padding: 30px; border-radius: 8px; width: 250px; cursor: pointer; border: 1px solid #555;">
+            <h4 style="color: #fff; margin-bottom: 10px;">Asset Evolution</h4>
+            <small style="color: #0f64a9; text-transform: uppercase;">Discover →</small>
         </div>
 
-        <div style="flex: 1; min-width: 300px; border: 2px solid #0f64a9; padding: 30px; border-radius: 4px; background: #fff; box-shadow: 0 4px 20px rgba(15,100,169,0.15);">
-          <h3 style="color: #0f64a9; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Layer II: Isolation</h3>
-          <p style="color: #333; font-size: 15px; line-height: 1.6; font-weight: 500;">
-            <strong>The Firewall:</strong> Digital Joule-tagging. Any unit used for compliance is irreversibly locked to prevent double counting.
-          </p>
-          <span style="font-size: 11px; background: #0f64a9; color: #fff; padding: 3px 10px; border-radius: 2px; text-transform: uppercase;">Isolation Architecture</span>
-        </div>
+    </div>
+</section>
 
-        <div style="flex: 1; min-width: 300px; border: 1px solid #ddd; padding: 30px; border-radius: 4px; background: #f9f9f9;">
-          <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Layer III: Carbon Bank</h3>
-          <p style="color: #666; font-size: 15px; line-height: 1.6;">
-            Economic attribution of audited additionality. Transforming verified reductions into high-integrity Scope 3 Insetting assets.
-          </p>
-          <span style="font-size: 11px; color: #0f64a9; font-weight: bold; text-transform: uppercase;">The Value Layer</span>
-        </div>
+<div id="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center;" onclick="closeModal()">
+    <div style="background: white; padding: 40px; border-radius: 12px; max-width: 600px; width: 90%; position: relative; color: #333;" onclick="event.stopPropagation()">
+        <span onclick="closeModal()" style="position: absolute; top: 15px; right: 20px; font-size: 30px; cursor: pointer; color: #999;">&times;</span>
+        <div id="modalContent"></div>
+    </div>
+</div>
 
-      </div>
-    </section>
-<section style="padding: 80px 20px; background-color: #f4f7f9; border-top: 1px solid #eaeaea; font-family: sans-serif;">
-        <div style="max-width: 900px; margin: auto;">
-            <h2 style="text-align: center; color: #0f64a9; margin-bottom: 50px; font-size: 28px;">The Regulatory Collision</h2>
-            
-            <div style="display: flex; gap: 40px; flex-wrap: wrap; justify-content: space-between;">
-                <div style="flex: 1; min-width: 300px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                    <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px; margin-top: 0;">EU-ETS (Mass-Based)</h3>
-                    <p style="color: #666; font-size: 15px;">Focus: <strong>Absolute Emissions</strong></p>
-                    <ul style="color: #555; font-size: 14px; line-height: 1.8; padding-left: 20px;">
-                        <li>Cap & Trade Logic</li>
-                        <li>Surrender of EUAs (Allowances)</li>
-                        <li>Target: Net Zero through Carbon Pricing</li>
-                    </ul>
-                </div>
+<script>
+    function toggleAccordion(id) {
+        const el = document.getElementById(id);
+        const isVisible = el.style.display === 'block';
+        // Alle schließen
+        document.querySelectorAll('[ id^="layer" ]').forEach(d => d.style.display = 'none');
+        // Gewähltes öffnen
+        el.style.display = isVisible ? 'none' : 'block';
+    }
 
-                <div style="flex: 1; min-width: 300px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                    <h3 style="color: #333; border-bottom: 2px solid #0f64a9; padding-bottom: 10px; margin-top: 0;">FuelEU Maritime (Intensity)</h3>
-                    <p style="color: #666; font-size: 15px;">Focus: <strong>GHG Intensity of Energy</strong></p>
-                    <ul style="color: #555; font-size: 14px; line-height: 1.8; padding-left: 20px;">
-                        <li>Pooling & Banking Logic</li>
-                        <li>Compliance Balances (gCO2e/MJ)</li>
-                        <li>Target: De-fossilization of Fuel Mix</li>
-                    </ul>
-                </div>
-            </div>
+    const data = {
+        ets: { title: "EU-ETS (Mass-Based)", text: "Focuses on the absolute mass of CO2 emitted. One allowance (EUA) equals one ton of CO2. Target: Net Zero through carbon pricing and cap-and-trade logic." },
+        fueleu: { title: "FuelEU Maritime (Intensity)", text: "Focuses on the GHG intensity of energy used (gCO2e/MJ). Rewards renewable fuels through pooling and banking logic. Target: De-fossilization of the fuel mix." },
+        strategic: { title: "Strategic Orchestration", text: "Optimizing fleet-wide fuel allocation decisions under regulatory and market constraints. The Velonaut synchronizes data to maximize the strategic value of every nautical mile." },
+        integrity: { title: "End-to-End Integrity", text: "Trust via 'Integrity by Design'. Every data point is cryptographically secured from bunker delivery to audit, ensuring 'bankable' environmental assets." },
+        evolution: { title: "Asset Evolution", text: "Transforming vessels from cost centers into high-value 'Green Assets'. Monetize decarbonization efforts through audited Scope 3 insetting." }
+    };
 
-            <div style="margin-top: 40px; padding: 25px; background: #fff; border-left: 5px solid #0f64a9; font-style: italic; color: #444; line-height: 1.6;">
-                "Managing these asynchronies manually is a systemic risk. VELONAUTICS provides the decision infrastructure to solve this collision through a dedicated isolation architecture."
-            </div>
-        </div>
-    </section>
+    function openModal(key) {
+        document.getElementById('modalContent').innerHTML = `<h2 style="color:#0f64a9; margin-top:0;">${data[key].title}</h2><p style="line-height:1.8; font-size:16px;">${data[key].text}</p>`;
+        document.getElementById('modalOverlay').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('modalOverlay').style.display = 'none';
+    }
+</script>
     <footer style="padding: 60px 20px; text-align: center; border-top: 1px solid #eaeaea; background: #fdfdfd; font-family: sans-serif;">
     <p style="color: #333; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px;">VELONAUTICS</p>
     <div style="font-size: 14px; color: #666;">
