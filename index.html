@@ -75,51 +75,64 @@
     </div>
 </section>
 
-<section style="padding: 100px 20px; max-width: 900px; margin: auto; font-family: sans-serif;">
+<section style="padding: 100px 20px; max-width: 1200px; margin: auto; font-family: sans-serif;">
     <h2 style="text-align: center; color: #333; margin-bottom: 15px; font-size: 32px;">The Triple-Layer Architecture</h2>
-    <p style="text-align: center; color: #666; margin-bottom: 50px;">A modular framework for regulatory isolation and value attribution.</p>
-    <div style="border: 1px solid #eee; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden;">
-        <div style="border-bottom: 1px solid #eee;">
-            <button class="acc-btn" onclick="toggleAccordion('layer1')" style="width: 100%; padding: 25px; background: #fff; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600;">
-                Layer I: Compliance Management <span class="acc-icon">+</span>
-            </button>
-            <div id="layer1" style="display: none; padding: 0 25px 30px 25px; color: #555; line-height: 1.8;">
-                Layer I automates MRV requirements for both mass-based (ETS) and intensity-based (FuelEU) regimes. By forecasting surrender requirements, it provides a predictive safety net to mitigate price volatility.
+    <p style="text-align: center; color: #666; margin-bottom: 50px;">Ein modularer Framework für regulatorische Isolation und unbestechliche Wertschöpfung.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px;">
+        
+        <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
+            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer I</h3>
+            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Compliance Engine</p>
+            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                <p>Layer I automatisiert die komplexen MRV-Anforderungen (Monitoring, Reporting, Verification) sowohl für massenbasierte (<strong>EU-ETS</strong>) als auch intensitätsbasierte (<strong>FuelEU Maritime</strong>) Regulierungs-Regime. Durch die direkte Ingestion von <strong>ISO 19848</strong> Datenströmen und digitalen Bunker-Belegen (BDN) wird die physische Realität des Schiffsbetriebs in regulatorische Logik übersetzt.</p>
+                <p>Das System liefert nicht nur rückwirkende Berichte, sondern fungiert als prädiktives Sicherheitsnetz. Durch die Vorhersage zukünftiger Abgabepflichten ermöglicht es Unternehmen, Preisvolatilitäten am Zertifikatemarkt frühzeitig abzufedern und operative Entscheidungen auf Basis verifizierter Compliance-Daten zu treffen.</p>
+            </div>
+            <div style="margin-top: 20px; padding: 15px; background: #eee; border-radius: 6px; font-size: 14px; color: #333; border-left: 4px solid #999;">
+                <strong>Daten-Validierung:</strong><br>
+                • Echtzeit-Ingestion operativer Sensordaten<br>
+                • Abgleich mit digitaler Bunker-Chain-of-Custody<br>
+                • Deterministische Berechnung der Abgabequoten
             </div>
         </div>
-        <div style="border-bottom: 1px solid #eee; border-left: 6px solid #0f64a9;">
-            <button class="acc-btn" onclick="toggleAccordion('layer2')" style="width: 100%; padding: 25px; background: #fff; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; color: #0f64a9;">
-                Layer II: Isolation Architecture <span class="acc-icon">+</span>
-            </button>
-            <div id="layer2" style="display: none; padding: 0 25px 30px 25px; color: #555; line-height: 1.8;">
-                <div style="margin: 20px 0; padding: 20px; background: #eef6fc; color: #0f64a9; border-radius: 6px; font-weight: bold; border-left: 4px solid #0f64a9; font-size: 17px;">
-                    "It guarantees that one Joule of green energy is never sold twice."
+
+        <div style="background: #fff; padding: 35px; border-radius: 12px; border: 1px solid #0f64a9; box-shadow: 0 15px 35px rgba(15,100,169,0.15); display: flex; flex-direction: column; transform: scale(1.02); z-index: 10;">
+            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer II</h3>
+            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Isolation Firewall</p>
+            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                <div style="margin-bottom: 20px; padding: 15px; background: #eef6fc; color: #0f64a9; border-radius: 6px; font-weight: bold; border-left: 4px solid #0f64a9; font-size: 16px;">
+                    "Es garantiert, dass ein Joule grüner Energie niemals doppelt gezählt wird."
                 </div>
-                Digital Joule-tagging ensures that environmental attributes used in Layer I are irreversibly locked and cannot be claimed as additionality in Layer III.
+                <p>Das kryptografische <strong>Joule-Tagging</strong> stellt sicher, dass Umweltattribute, die in Layer I zur Erfüllung gesetzlicher Quoten genutzt wurden, irreversibel gesperrt werden. Diese Schicht bildet das unbestechliche Fundament der Architektur.</p>
+                <p>Innerhalb der State-Machine von Layer II findet die strikte Trennung statt: Erst wenn ein Energie-Event die Firewall passiert und als "Compliance-used" markiert wurde, ist es für Layer III als Additionality-Asset ausgeschlossen. Diese Isolation verhindert Double-Counting auf technischer Ebene, noch bevor ein Markt-Export stattfindet.</p>
+            </div>
+            <div style="margin-top: 20px; padding: 15px; background: #0f64a9; color: white; border-radius: 6px; font-size: 14px;">
+                <strong>Integritäts-Check:</strong> Irreversible Zustandsänderung (Locked-State Logic) für jedes Energie-Asset.
             </div>
         </div>
-       <div>
-    <button class="acc-btn" onclick="toggleAccordion('layer3')" style="width: 100%; padding: 25px; background: #fff; border: none; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600;">
-        Layer III: Carbon Bank & Export Layer <span class="acc-icon">+</span>
-    </button>
-    <div id="layer3" style="display: none; padding: 0 25px 30px 25px; color: #555; line-height: 1.8;">
-        <p>
-            Layer III fungiert als ökonomisches Bindeglied zwischen regulatorischer Erfüllung und freiwilliger Wertschöpfung. Hier wird die <strong>Additionality</strong> (Zusätzlichkeit) identifiziert – also jene Emissionsminderungen, die über die gesetzlichen Anforderungen von ETS und FuelEU hinausgehen. 
-        </p>
-        <p>
-            Diese Schicht bündelt die auditierten Überschüsse und strukturiert sie als hochwertige <strong>Scope 3 Insetting-Assets</strong>. Der Velonaut bereitet die Daten hierbei für externe Systeme vor, bleibt dabei jedoch <strong>registry-agnostisch</strong>: Die Asset-Semantik ist strikt von der Abwicklungstechnologie getrennt. 
-        </p>
-        <div style="margin-top: 15px; padding: 15px; background: #f4f7f9; border-radius: 6px; font-size: 14px; color: #333;">
-            <strong>Unterstützte Exportformate:</strong><br>
-            • Blockchain-basierte Token (als Registry-Container)<br>
-            • Einträge in institutionelle Register<br>
-            • Bilaterale Ledger-Transfers für Supply-Chain-Partner
+
+        <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
+            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer III</h3>
+            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Carbon Bank & Export Layer</p>
+            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                <p>Layer III fungiert als ökonomisches Bindeglied zwischen regulatorischer Erfüllung und freiwilliger Wertschöpfung. Hier wird die <strong>Additionality</strong> identifiziert – jene Emissionsminderungen, die über die gesetzlichen Anforderungen hinausgehen.</p>
+                <p>Diese Schicht bündelt die auditierten Überschüsse und strukturiert sie als hochwertige <strong>Scope 3 Insetting-Assets</strong>. Der Velonaut bereitet die Daten für externe Systeme vor, bleibt dabei jedoch <strong>registry-agnostisch</strong>: Die Asset-Semantik ist strikt von der Abwicklungstechnologie getrennt.</p>
+            </div>
+            <div style="margin-top: 20px; padding: 15px; background: #eee; border-radius: 6px; font-size: 14px; color: #333; border-left: 4px solid #999;">
+                <strong>Unterstützte Exportformate:</strong><br>
+                • Blockchain-basierte Token (als Registry-Container)<br>
+                • Einträge in institutionelle Register<br>
+                • Bilaterale Ledger-Transfers für Supply-Chain-Partner
+            </div>
+            <p style="font-size: 13px; color: #777; margin-top: 15px; font-style: italic;">
+                Tokenisierung wird zum optionalen Prozessschritt (Asset Logic first, Settlement second).
+            </p>
         </div>
-        <p style="margin-top: 15px;">
-            Damit wird die Tokenisierung zu einem optionalen, nachgelagerten Prozessschritt (Asset Logic first, Settlement second), der die Integrität aus Layer II direkt in den Markt exportiert.
-        </p>
     </div>
-</div>
+
+    <p style="text-align: center; margin-top: 60px; font-style: italic; color: #444; max-width: 800px; margin-left: auto; margin-right: auto; line-height: 1.6; font-size: 17px;">
+        "Velonautics transformiert regulatorische Lasten in handelbare Werte, indem wir die physische Wahrheit durch <strong>ISO 19848 Datenintegration</strong> und digitale BDN-Validierung im Core festschreiben."
+    </p>
 </section>
 <section style="padding: 100px 20px; background-color: #ffffff; font-family: sans-serif;">
     <div style="max-width: 900px; margin: auto;">
