@@ -8,23 +8,60 @@
         :root { --main-blue: #0f64a9; --bg-dark: #1a1a1a; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #333; margin: 0; background: #fdfdfd; }
         header { background: var(--bg-dark); color: white; padding: 80px 20px; text-align: center; }
-        .container { max-width: 850px; margin: auto; padding: 40px 20px; }
+        header h1 { font-size: 40px; margin: 0; }
+        header p { color: #bbb; margin-top: 15px; font-size: 18px; }
+        
+        .container { max-width: 900px; margin: auto; padding: 40px 20px; }
         .manifesto-box { background: white; border: 1px solid #eee; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .section-title { color: var(--main-blue); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 40px; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
-        .highlight { border-left: 5px solid var(--main-blue); padding-left: 20px; font-style: italic; margin: 30px 0; color: #444; font-size: 1.1em; }
-        code { background: #f4f4f4; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+        .section-title { color: var(--main-blue); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 50px; text-transform: uppercase; font-size: 18px; letter-spacing: 1px; }
+        .highlight { border-left: 5px solid var(--main-blue); padding-left: 20px; font-style: italic; margin: 30px 0; color: #444; font-size: 1.1em; transition: 0.3s; }
+        .highlight:hover { background: #f9f9f9; transform: translateX(5px); }
+        
+        .svg-container { position: relative; width: 100%; max-width: 550px; margin: 40px auto; text-align: center; }
+        .tooltip { 
+            position: absolute; background: rgba(15, 100, 169, 0.98); color: white; padding: 12px; border-radius: 6px; 
+            font-size: 12px; pointer-events: none; z-index: 100; max-width: 250px; opacity: 0; transition: opacity 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); line-height: 1.4;
+        }
+
+        @keyframes flowLine { to { stroke-dashoffset: -20; } }
+        .flow-path { stroke-dasharray: 5; animation: flowLine 2s linear infinite; }
+        
+        @keyframes firewallPulse {
+            0% { filter: drop-shadow(0 0 2px rgba(15,100,169,0.4)); }
+            50% { filter: drop-shadow(0 0 10px rgba(15,100,169,0.8)); }
+            100% { filter: drop-shadow(0 0 2px rgba(15,100,169,0.4)); }
+        }
+        .firewall-glow { animation: firewallPulse 3s ease-in-out infinite; cursor: help; }
+        .interactive-layer { cursor: help; transition: 0.3s; }
+        .interactive-layer:hover { fill-opacity: 0.8; }
+
+        .api-block { 
+            background: #333; color: #fff; padding: 25px; border-radius: 8px; font-family: 'Fira Code', monospace; 
+            font-size: 13px; overflow-x: auto; white-space: pre; margin: 30px 0; border-left: 4px solid var(--main-blue);
+        }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-top: 25px; }
+        .card { background: #fff; padding: 25px; border-radius: 8px; border: 1px dashed #ccc; transition: 0.3s; }
+        .card:hover { border-color: var(--main-blue); background: #fcfcfc; }
+        .card h4 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #333; display: flex; align-items: center; gap: 8px; }
+        .card .reasoning { font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; font-style: italic; margin-top: 10px; }
+
+        code { background: #f4f4f4; padding: 2px 5px; border-radius: 4px; font-family: monospace; color: var(--main-blue); }
+        ul li { margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <header>
     <div style="font-family: monospace; color: var(--main-blue); margin-bottom: 10px;">&lt;developer-manifest&gt;</div>
-    <h1 style="margin: 0; font-size: 38px;">Integrity by Design</h1>
-    <p style="color: #999; margin-top: 15px;">Encoding Regulatory Invariants into Maritime Energy Flows.</p>
+    <h1>Integrity by Design</h1>
+    <p>Encoding Regulatory Invariants into Maritime Energy Flows.</p>
 </header>
 
 <div class="container">
     <div class="manifesto-box">
+        
         <div class="section-title">1. Die Mission</div>
         <p>Die maritime Dekarbonisierung ist kein technisches Einzelproblem, sondern ein <strong>systemisches Koordinationsproblem</strong>. Velonautics existiert, um die Fragmentierung zwischen EU-ETS, FuelEU Maritime und dem freiwilligen Kohlenstoffmarkt aufzulösen.</p>
 
@@ -32,124 +69,103 @@
             "Wir bauen Infrastruktur, nicht Narrative. Unsere Aufgabe ist die Kodierung regulatorischer Invarianten."
         </div>
 
-        <div style="text-align: center; margin: 40px 0;">
+        <div class="svg-container">
             <div style="font-size: 12px; text-transform: uppercase; color: #999; letter-spacing: 2px; margin-bottom: 20px;">Systemic Logic Flow</div>
-            <div style="max-width: 500px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #eee; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 550" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="210" y="20" width="170" height="80" rx="5" fill="#eef6fc" stroke="#0f64a9" stroke-width="2"/>
-                    <text x="295" y="50" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#0f64a9">Layer IIIb: Market</text>
-                    <text x="295" y="72" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#666">Scope 3 Assets</text>
+            <svg viewBox="0 0 400 550" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                <rect class="interactive-layer" x="210" y="20" width="170" height="80" rx="5" fill="#eef6fc" stroke="#0f64a9" stroke-width="2" onmousemove="showTooltip(event, '<b>Layer IIIb: Market</b><br>Registry-agnostischer Export von hochwertigen Scope-3 Assets. Additionality wird hier marktfähig.')" onmouseleave="hideTooltip()"/>
+                <text x="295" y="55" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#0f64a9" pointer-events="none">Layer IIIb: Market</text>
 
-                    <rect x="20" y="20" width="170" height="80" rx="5" fill="#f9f9f9" stroke="#333" stroke-width="2"/>
-                    <text x="105" y="50" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">Layer IIIa: Regulatory</text>
-                    <text x="105" y="72" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#666">Compliance Balances</text>
+                <rect class="interactive-layer" x="20" y="20" width="170" height="80" rx="5" fill="#f9f9f9" stroke="#333" stroke-width="2" onmousemove="showTooltip(event, '<b>Layer IIIa: Regulatory</b><br>Prüfbereite Salden für Behörden und Verifizierer.')" onmouseleave="hideTooltip()"/>
+                <text x="105" y="55" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#333" pointer-events="none">Layer IIIa: Regulatory</text>
 
-                    <rect x="20" y="150" width="360" height="50" fill="#0f64a9" />
-                    <text x="200" y="175" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">LAYER II: ISOLATION FIREWALL</text>
-                    <text x="200" y="190" font-family="sans-serif" font-size="9" text-anchor="middle" fill="#fff">Irreversible State Transitions</text>
+                <rect class="firewall-glow interactive-layer" x="20" y="150" width="360" height="50" fill="#0f64a9" onmousemove="showTooltip(event, '<b>Layer II: Isolation Firewall</b><br>Die State Machine des Systems. Hier findet die irreversible Zuweisung (Joule-Tagging) statt.')" onmouseleave="hideTooltip()"/>
+                <text x="200" y="180" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff" pointer-events="none">LAYER II: ISOLATION FIREWALL</text>
 
-                    <rect x="50" y="250" width="300" height="80" rx="5" fill="#fff" stroke="#eee" stroke-width="2"/>
-                    <text x="200" y="285" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Layer I: Compliance Engine</text>
-                    <text x="200" y="305" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#666">ETS & FuelEU Logic</text>
+                <rect class="interactive-layer" x="50" y="250" width="300" height="80" rx="5" fill="#fff" stroke="#eee" stroke-width="2" onmousemove="showTooltip(event, '<b>Layer I: Compliance Engine</b><br>Berechnung der regulatorischen Invarianten basierend auf ETS und FuelEU.')" onmouseleave="hideTooltip()"/>
+                <text x="200" y="285" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Layer I: Compliance Engine</text>
 
-                    <rect x="50" y="360" width="300" height="60" rx="5" fill="#f4f7f9" stroke="#eee" stroke-dasharray="5,5"/>
-                    <text x="200" y="395" font-family="sans-serif" font-size="12" text-anchor="middle" fill="#555">Data Integrity (Sensors, BDNs)</text>
+                <circle class="interactive-layer" cx="200" cy="500" r="30" fill="#333" onmousemove="showTooltip(event, '<b>Physical Reality</b><br>Sensordaten, BDNs und Bunker-Events.')" onmouseleave="hideTooltip()"/>
+                <text x="200" y="505" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#fff" font-weight="bold" pointer-events="none">REALITY</text>
 
-                    <circle cx="200" cy="500" r="30" fill="#333"/>
-                    <text x="200" y="505" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#fff" font-weight="bold">REALITY</text>
-
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#ccc" />
-                        </marker>
-                    </defs>
-                    <line x1="200" y1="470" x2="200" y2="430" stroke="#ccc" stroke-width="2" marker-end="url(#arrowhead)"/>
-                    <line x1="200" y1="360" x2="200" y2="340" stroke="#ccc" stroke-width="2" marker-end="url(#arrowhead)"/>
-                    <line x1="200" y1="250" x2="200" y2="210" stroke="#ccc" stroke-width="2" marker-end="url(#arrowhead)"/>
-                    <path d="M 105 150 L 105 110" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
-                    <path d="M 295 150 L 295 110" stroke="#0f64a9" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
-                </svg>
-            </div>
-            <p style="font-size: 13px; color: #888; margin-top: 15px;">Die "Schleusen-Logik": Energie-Events werden in Layer II unumkehrbar einer Destination zugewiesen.</p>
+                <line class="flow-path" x1="200" y1="470" x2="200" y2="435" stroke="#ccc" stroke-width="3" />
+                <line class="flow-path" x1="200" y1="360" x2="200" y2="345" stroke="#ccc" stroke-width="3" />
+                <line class="flow-path" x1="200" y1="250" x2="200" y2="215" stroke="#ccc" stroke-width="3" />
+            </svg>
+            <div id="svg-tooltip" class="tooltip"></div>
         </div>
 
         <div class="section-title">2. Der Kern (Was wir bauen)</div>
         <p>Velonautics ist eine Entscheidungs- und Accounting-Infrastruktur. Wir bauen keine App, kein Trading-System und kein klassisches Krypto-Produkt. Unser Kern ist die Ableitung regulatorischer Wahrheit aus operativen Daten.</p>
-        
+
         <div class="section-title">3. Architektur & Invarianten</div>
         <p>Wir folgen dem Prinzip: <strong>Wahrheit vor Handel. Physik vor Markt.</strong></p>
         <ul>
-            <li><strong>Layer I:</strong> Deterministische Abbildung gesetzlicher Mindestanforderungen.</li>
-            <li><strong>Layer II:</strong> Kernlogik der Isolation (Firewall). Joule-Tagging zur Verhinderung von Double-Counting.</li>
-            <li><strong>Layer III:</strong> Export-Layer für Additionality. Registry-agnostisch (Token-ready, but not dependent).</li>
+            <li><strong>Layer I – Compliance Engine:</strong> Deterministische Abbildung gesetzlicher Mindestanforderungen. Hier wird die regulatorische Logik (ETS/FuelEU) direkt in Code übersetzt.</li>
+            <li><strong>Layer II – Isolation Firewall:</strong> Kernlogik der Isolation. Joule-Tagging zur Verhinderung von Double-Counting. Einmal allokierte Energie-Events können den Status nie wieder wechseln.</li>
+            <li><strong>Layer III – Export Layer:</strong> Bereitstellung von Assets für den Markt. Registry-agnostisch gestaltet, um Tokenisierung als optionales Exportformat zu ermöglichen.</li>
         </ul>
 
         <div class="section-title">4. Systemarchitektur: Velonaut Core</div>
-        <p>Hier arbeiten wir nicht an CRUD-Interfaces, sondern an der Kodierung realer wirtschaftlicher Konsequenzen:</p>
+        <p>Wir arbeiten an der Kodierung realer wirtschaftlicher Konsequenzen:</p>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-top: 20px;">
-            <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
-                <h4 style="margin-top: 0; font-size: 15px;">Ingestion Engine</h4>
-                <p style="font-size: 12px; color: #666;">Normalisierung von Rohdaten (Sensoren, APIs) in das kanonische Format <strong>Joule</strong>.</p>
-                <code style="font-size: 10px; color: #0f64a9;">POST /ingest</code>
-            </div>
-            <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
-                <h4 style="margin-top: 0; font-size: 15px;">Logic Engine (L1)</h4>
-                <p style="font-size: 12px; color: #666;">Deterministische Abbildung von EU-Regularien (ETS/FuelEU). Versionsgeprüft.</p>
-                <code style="font-size: 10px; color: #0f64a9;">Deterministic Systems</code>
-            </div>
-            <div style="background: #fdfdfd; padding: 20px; border-radius: 8px; border: 2px solid #0f64a9;">
-                <h4 style="margin-top: 0; font-size: 15px; color: #0f64a9;">Isolation Ledger (L2)</h4>
-                <p style="font-size: 12px; color: #666;">Append-only Event Store. Verwaltung unumkehrbarer <strong>State Transitions</strong>.</p>
-                <code style="font-size: 10px; color: #0f64a9;">/allocate (Irreversible)</code>
-            </div>
-        </div>
+        <div class="api-block">
+// API Design Principle: Separation of Semantics and Settlement
 
-        <div style="margin-top: 30px; background: #333; color: #fff; padding: 25px; border-radius: 8px; font-family: monospace; font-size: 13px;">
-            <div style="color: #0f64a9; margin-bottom: 8px;">// API Design Principle</div>
-            <div style="line-height: 1.6;">
-                <span style="color: #999;"># Separation of Semantics and Settlement</span><br>
-                if energy_event.allocated_to == "Compliance":<br>
-                &nbsp;&nbsp;lock_state(event_id, irreversible=True)<br>
-                <span style="color: #999;"># Truth before Trade.</span>
-            </div>
-        </div>
+if energy_event.allocated_to == "Compliance":
+    # Joule-Tagging: Irreversible state transition
+    lock_state(event_id, irreversible=True)
+    prevent_market_attribution(event_id)
+
+# Truth before Trade.</div>
 
         <div class="section-title">5. Velonaut Core – Non-Goals</div>
-        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
-            Um Integrität und Fokus zu wahren, definiert der Velonaut Core klare Nicht-Ziele. Wir bauen eine Infrastruktur für unumkehrbare Zustände, kein All-in-One Ökosystem.
-        </p>
+        <p style="font-size: 14px; color: #666;">Klarheit durch Abgrenzung: Was Velonautics bewusst <u>nicht</u> ist.</p>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px dashed #ccc;">
-                <h4 style="margin-top: 0; font-size: 14px; color: #333; text-transform: uppercase;">Kein Trading-System</h4>
-                <p style="font-size: 12px; color: #777; line-height: 1.5;">Keine Preisbildung, keine Orderbücher. Der Core erzeugt prüfbare Wahrheiten, keine Marktpreise.</p>
+        <div class="grid">
+            <div class="card">
+                <h4>❌ Kein Trading-System</h4>
+                <p style="font-size: 12px; color: #555;">Keine Preisbildung, keine Orderbücher. Wir erzeugen Fakten, keine Marktpreise.</p>
+                <div class="reasoning">Grund: Der Core ist neutral. Handel ist interessengeleitet und kontextabhängig.</div>
             </div>
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px dashed #ccc;">
-                <h4 style="margin-top: 0; font-size: 14px; color: #333; text-transform: uppercase;">Kein Wallet / Custody</h4>
-                <p style="font-size: 12px; color: #777; line-height: 1.5;">Keine Private-Key-Verwaltung. Eigentum und Übertragung liegen außerhalb des Systems.</p>
+            <div class="card">
+                <h4>❌ Kein Wallet / Custody</h4>
+                <p style="font-size: 12px; color: #555;">Keine Private-Key-Verwaltung. Das System besitzt keine Assets, es definiert sie lediglich.</p>
+                <div class="reasoning">Grund: Eigentum und Übertragung liegen außerhalb bei Banken oder offiziellen Registern.</div>
             </div>
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px dashed #ccc;">
-                <h4 style="margin-top: 0; font-size: 14px; color: #333; text-transform: uppercase;">Keine Blockchain-Abhängigkeit</h4>
-                <p style="font-size: 12px; color: #777; line-height: 1.5;">Registry-agnostisch. Tokenisierung ist ein Exportformat, kein Kernbestandteil.</p>
+            <div class="card">
+                <h4>❌ Keine Chain-Abhängigkeit</h4>
+                <p style="font-size: 12px; color: #555;">Wir sind registry-agnostisch. Die Wahrheit entsteht in Layer II, nicht auf einer spezifischen Chain.</p>
+                <div class="reasoning">Grund: Tokenisierung ist ein Exportformat, kein Kernbestandteil der Logik.</div>
             </div>
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px dashed #ccc;">
-                <h4 style="margin-top: 0; font-size: 14px; color: #333; text-transform: uppercase;">Kein Dashboard-First</h4>
-                <p style="font-size: 12px; color: #777; line-height: 1.5;">Wir bauen keine kosmetische Excel-Replikation. Wir verwalten Zustände in Echtzeit.</p>
+            <div class="card">
+                <h4>❌ Kein Dashboard-First</h4>
+                <p style="font-size: 12px; color: #555;">Keine kosmetische Excel-Replikation. Wir verwalten Zustände und Transitions in Echtzeit.</p>
+                <div class="reasoning">Grund: Reporting beschreibt Vergangenheit; der Core sichert die Gegenwart.</div>
             </div>
         </div>
 
-        <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-left: 5px solid #0f64a9; font-size: 14px; color: #333; line-height: 1.6;">
+        <div style="margin-top: 35px; padding: 25px; background: #f8fafc; border-left: 5px solid var(--main-blue); font-size: 14px; color: #333; line-height: 1.6;">
             <strong>Leitsatz:</strong> Velonautics baut keine Plattform für Meinungen, Märkte oder Manöver. Wir bauen die Infrastruktur für unbestechliche Fakten.
         </div>
 
-        <div style="text-align: center; margin-top: 50px; border-top: 1px solid #eee; padding-top: 30px;">
+        <div style="text-align: center; margin-top: 60px; border-top: 1px solid #eee; padding-top: 30px;">
             <p style="font-weight: bold; color: #333; margin-bottom: 10px;">Interesse am technischen Audit?</p>
             <a href="mailto:hello@velonautics.de?subject=Dev Inquiry" style="color: #0f64a9; text-decoration: none; font-weight: bold;">hello@velonautics.de</a>
-            <p style="margin-top: 20px;"><a href="index.html" style="color: #666; font-size: 14px; text-decoration: none;">&larr; Zurück zum Konzept</a></p>
+            <p style="margin-top: 25px;"><a href="index.html" style="color: #666; font-size: 14px; text-decoration: none;">&larr; Zurück zum Konzept</a></p>
         </div>
     </div>
 </div>
+
+<script>
+    const tooltip = document.getElementById("svg-tooltip");
+    function showTooltip(evt, text) {
+        tooltip.innerHTML = text;
+        tooltip.style.opacity = "1";
+        tooltip.style.left = (evt.pageX + 15) + 'px';
+        tooltip.style.top = (evt.pageY - 20) + 'px';
+    }
+    function hideTooltip() { tooltip.style.opacity = "0"; }
+</script>
 
 </body>
 </html>
