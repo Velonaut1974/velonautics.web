@@ -13,7 +13,6 @@
         .section-title { color: var(--main-blue); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 40px; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         .highlight { border-left: 5px solid var(--main-blue); padding-left: 20px; font-style: italic; margin: 30px 0; color: #444; font-size: 1.1em; }
         code { background: #f4f4f4; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
-        .cta-btn { display: inline-block; background: var(--main-blue); color: white; padding: 15px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 40px; }
     </style>
 </head>
 <body>
@@ -32,7 +31,8 @@
         <div class="highlight">
             "Wir bauen Infrastruktur, nicht Narrative. Unsere Aufgabe ist die Kodierung regulatorischer Invarianten."
         </div>
-<div style="text-align: center; margin: 40px 0;">
+
+        <div style="text-align: center; margin: 40px 0;">
             <div style="font-size: 12px; text-transform: uppercase; color: #999; letter-spacing: 2px; margin-bottom: 20px;">Systemic Logic Flow</div>
             
             <div style="max-width: 500px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #eee; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);">
@@ -73,6 +73,7 @@
             </div>
             <p style="font-size: 13px; color: #888; margin-top: 15px;">Die "Schleusen-Logik": Energie-Events werden in Layer II unumkehrbar einer Destination zugewiesen.</p>
         </div>
+
         <div class="section-title">2. Der Kern (Was wir bauen)</div>
         <p>Velonautics ist eine Entscheidungs- und Accounting-Infrastruktur. Wir bauen keine App, kein Trading-System und kein klassisches Krypto-Produkt. Unser Kern ist die Ableitung regulatorischer Wahrheit aus operativen Daten.</p>
         
@@ -84,17 +85,41 @@
             <li><strong>Layer III:</strong> Export-Layer für Additionality. Registry-agnostisch (Token-ready, but not dependent).</li>
         </ul>
 
-        <div class="section-title">4. Stack & Challenge</div>
-        <p>Hier arbeiten wir nicht an CRUD-Interfaces, sondern an:</p>
-        <ul>
-            <li><strong>Regulatorischer Logik:</strong> Komplexe Rechenwerke als deterministischer Code.</li>
-            <li><strong>Datenintegrität:</strong> Herkunftssicherung (Sensoren, BDNs) und <code>Append-only</code> Strukturen.</li>
-            <li><strong>Optimierung:</strong> Flottenweite Kraftstoff-Allokation unter harten Nebenbedingungen.</li>
-        </ul>
+        <div class="section-title">4. Systemarchitektur: Velonaut Core</div>
+        <p>Hier arbeiten wir nicht an CRUD-Interfaces, sondern an der Kodierung realer wirtschaftlicher Konsequenzen:</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-top: 20px;">
+            <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
+                <h4 style="margin-top: 0; font-size: 15px;">Ingestion Engine</h4>
+                <p style="font-size: 12px; color: #666;">Normalisierung von Rohdaten (Sensoren, APIs) in das kanonische Format <strong>Joule</strong>.</p>
+                <code style="font-size: 10px; color: #0f64a9;">POST /ingest</code>
+            </div>
+            <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
+                <h4 style="margin-top: 0; font-size: 15px;">Logic Engine (L1)</h4>
+                <p style="font-size: 12px; color: #666;">Deterministische Abbildung von EU-Regularien (ETS/FuelEU). Versionsgeprüft.</p>
+                <code style="font-size: 10px; color: #0f64a9;">Deterministic Systems</code>
+            </div>
+            <div style="background: #fdfdfd; padding: 20px; border-radius: 8px; border: 2px solid #0f64a9;">
+                <h4 style="margin-top: 0; font-size: 15px; color: #0f64a9;">Isolation Ledger (L2)</h4>
+                <p style="font-size: 12px; color: #666;">Append-only Event Store. Verwaltung unumkehrbarer <strong>State Transitions</strong>.</p>
+                <code style="font-size: 10px; color: #0f64a9;">/allocate (Irreversible)</code>
+            </div>
+        </div>
 
-        <div style="text-align: center;">
-            <a href="mailto:hello@velonautics.de?subject=Dev Inquiry" class="cta-btn">Join the Audit</a>
-            <p style="margin-top: 20px;"><a href="index.html" style="color: #666; font-size: 14px;">&larr; Zurück zum Konzept</a></p>
+        <div style="margin-top: 30px; background: #333; color: #fff; padding: 25px; border-radius: 8px; font-family: monospace; font-size: 13px;">
+            <div style="color: #0f64a9; margin-bottom: 8px;">// API Design Principle</div>
+            <div style="line-height: 1.6;">
+                <span style="color: #999;"># Separation of Semantics and Settlement</span><br>
+                if energy_event.allocated_to == "Compliance":<br>
+                &nbsp;&nbsp;lock_state(event_id, irreversible=True)<br>
+                <span style="color: #999;"># Truth before Trade.</span>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 50px; border-top: 1px solid #eee; padding-top: 30px;">
+            <p style="font-weight: bold; color: #333; margin-bottom: 10px;">Interesse am technischen Audit?</p>
+            <a href="mailto:hello@velonautics.de?subject=Dev Inquiry" style="color: #0f64a9; text-decoration: none; font-weight: bold;">hello@velonautics.de</a>
+            <p style="margin-top: 20px;"><a href="index.html" style="color: #666; font-size: 14px; text-decoration: none;">&larr; Zurück zum Konzept</a></p>
         </div>
     </div>
 </div>
