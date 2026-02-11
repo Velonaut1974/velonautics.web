@@ -14,6 +14,12 @@ class StrategyMode(Enum):
     AGRESSIVE = "AGGRESSIVE (5% Buffer)"
 
 @dataclass
+class AdditionalitySurplus:
+    gross_surplus: float
+    risk_buffer: float
+    net_surplus: float
+
+@dataclass
 class EnergyEvent:
     id: str
     vessel_id: str
@@ -29,7 +35,7 @@ class Vessel:
     id: str
     name: str
     vessel_type: str
-    dwt: int = 0  # Neu für v0.5.4.1
+    dwt: int = 0  
     events: List[EnergyEvent] = field(default_factory=list)
 
     def add_event(self, event: EnergyEvent):
