@@ -109,10 +109,6 @@ eua_price = st.sidebar.slider("ETS EUA Price (€/t)", 50, 150, 85)
 st.sidebar.divider()
 strategy = st.sidebar.selectbox("Additionality Strategy", list(StrategyMode))
 
-# --- LINK ZURÜCK ZUR HOMEPAGE ---
-st.sidebar.divider()
-st.sidebar.link_button("🌐 Back to Velonautics.de", "https://velonautics.de")
-
 # --- LAYER I: COMPLIANCE ANALYTICS ---
 col1, col2, col3 = st.columns(3)
 balance = fueleu.get_compliance_balance(fleet)
