@@ -1,0 +1,34 @@
+[
+    {
+        "id": "vessel-001",
+        "name": "MS Velonaut 1",
+        "vessel_type": "Container",
+        "events": [
+            {
+                "id": "ev-101",
+                "vessel_id": "vessel-001",
+                "fuel_type": "VLSFO",
+                "energy_mj": 500000,
+                "ghg_intensity": 91.16,
+                "eu_scope_factor": 1.0,
+                "state": "RAW"
+            }
+        ]
+    },
+    {
+        "id": "vessel-002",
+        "name": "Tanker Alpha",
+        "vessel_type": "Tanker",
+        "events": [
+            {
+                "id": "ev-201",
+                "vessel_id": "vessel-002",
+                "fuel_type": "Bio-Methanol",
+                "energy_mj": 300000,
+                "ghg_intensity": 15.2,
+                "eu_scope_factor": 0.5,
+                "state": "RAW"
+            }
+        ]
+    }
+]

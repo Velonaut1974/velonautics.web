@@ -1,0 +1,14 @@
+{
+    "VLSFO": {
+        "ghg_intensity": 91.16,
+        "description": "Standard Heavy Fuel Oil"
+    },
+    "Bio-Methanol": {
+        "ghg_intensity": 15.20,
+        "description": "Nachhaltiges Methanol"
+    },
+    "LNG": {
+        "ghg_intensity": 75.00,
+        "description": "Flüssigerdgas"
+    }
+}
