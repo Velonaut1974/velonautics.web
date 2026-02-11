@@ -96,12 +96,29 @@ def load_data():
             data = json.load(f)
         fl = Fleet()
         for v_data in data:
-            vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
+            # Hier wird das neue DWT Feld aus der JSON gezogen:
+            vessel = Vessel(
+                id=v_data['id'], 
+                name=v_data['name'], 
+                vessel_type=v_data['vessel_type'],
+                dwt=v_data.get('dwt', 0)
+            )
+            # WICHTIG: Die Schleife für die Events muss bleiben!
             for e_data in v_data['events']:
-                vessel.add_event(EnergyEvent(id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'], energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'], eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))))
+                vessel.add_event(EnergyEvent(
+                    id=e_data['id'], 
+                    vessel_id=v_data['id'], 
+                    fuel_type=e_data['fuel_type'],
+                    energy_mj=e_data['energy_mj'], 
+                    ghg_intensity=e_data['ghg_intensity'],
+                    eu_scope_factor=e_data['eu_scope_factor'], 
+                    state=State(e_data.get('state', 'RAW'))
+                ))
             fl.vessels.append(vessel)
         return fl
-    except: return Fleet()
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Flottendaten: {e}")
+        return Fleet()
 
 def save_data(fleet):
     output_data = []
