@@ -132,9 +132,9 @@ strategy = st.sidebar.selectbox("Risk Strategy", list(StrategyMode))
 fueleu_ui = FuelEUEngine(year=selected_year)
 
 st.title("🚢 Velonaut | v0.5.4 Forensic Ledger")
-st.caption("Arithmetic Sovereignty | Mathematical Replay | Dual-Layer Integrity")
+st.caption("Arithmetic Sovereignty | Mathematical Replay | Triple-Layer Architecture")
 
-# --- README SEKTION (WIEDER DA) ---
+# --- README SEKTION ---
 with st.expander("📖 System Documentation & Logic (Quick Guide)"):
     try:
         with open("README.md", "r", encoding="utf-8") as f:
@@ -142,17 +142,24 @@ with st.expander("📖 System Documentation & Logic (Quick Guide)"):
     except:
         st.info("Documentation guide (README.md) not found in repository.")
 
-# --- AUDIT STATUS ---
+# --- LAYER I: PHYSICAL DATA PROOF ---
+st.header("📡 Layer I: Physical Data Proof")
+st.info("Integritäts-Check der physikalischen Rohdaten (IoT/Bunker-Reports)")
+
 is_valid, chain_errors = validate_entire_ledger(ledger)
 if not is_valid:
-    st.error(f"🚨 LEDGER CORRUPTED: {chain_errors[0]}")
+    st.error(f"🚨 LAYER I BREACH: {chain_errors[0]}")
 else:
-    st.success("🔒 Institutional Chain of Custody Verified: Mathematics & Hashes Consistent.")
+    st.success("🔒 Physical Integrity Verified: Mathematics & Hashes Consistent.")
 
-# --- LAYER II: FIREWALL ---
+# --- LAYER II: ISOLATION FIREWALL ---
+st.divider()
 st.header("🛡️ Layer II: Isolation Firewall")
+st.info("Transformation von physikalischen Daten in regulatorisch geschützte Compliance-Events.")
+
 for v in fleet.vessels:
-    with st.expander(f"Vessel: {v.name}"):
+    with st.expander(f"Vessel: {v.name} ({v.id})"):
+        if hasattr(v, 'dwt'): st.caption(f"Type: {v.vessel_type} | DWT: {v.dwt}")
         for e in v.events:
             c1, c2, c3 = st.columns([3, 2, 1])
             c1.write(f"**ID:** {e.id} | {e.fuel_type}")
@@ -164,33 +171,44 @@ for v in fleet.vessels:
                     st.rerun()
             else: c3.write("🔒 LOCKED")
 
-# --- LAYER III: ASSET ISSUANCE ---
+# --- LAYER III: ADDITIONALITY ASSETS ---
 st.divider()
-st.header("💎 Asset Issuance")
+st.header("💎 Layer III: Additionality Assets")
+st.info("Berechnung des Net-Surplus und Tokenisierung der Emissionsvorteile.")
+
 balance = fueleu_ui.get_compliance_balance(fleet)
 
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
-    if st.button("🚀 Issue Chained Asset"):
+    col_a, col_b = st.columns(2)
+    col_a.metric("Fleet Compliance Balance", f"{balance:,.2f} gCO2e/MJ")
+    col_b.metric("Tradable Net Surplus", f"{report.net_surplus:,.2f} tCO2e")
+    
+    if st.button("🚀 Issue Chained Asset (Tokenize)"):
         valid_ledger = [e for e in ledger if isinstance(e, dict) and 'asset_hash' in e]
         prev_h = valid_ledger[-1]['asset_hash'] if valid_ledger else "0".zfill(64)
+        
         raw_events = []
         for e in fleet.get_all_events():
             if e.state != State.RAW:
                 raw_events.append({"id": str(e.id), "mj": str(e.energy_mj), "ghg": str(e.ghg_intensity), "scope": str(e.eu_scope_factor)})
+        
         rules = {"year": selected_year, "target": str(fueleu_ui.target_intensities[selected_year]), "ets_factor": str(ETSEngine(year=selected_year).phase_in_factor)}
         reg_h = get_regulatory_hash(raw_events, rules)
+        
         payload = {"vol": str(report.net_surplus), "strat": strategy.value, "rules": rules, "raw_events": raw_events, "ts": datetime.utcnow().isoformat(), "uuid": str(uuid.uuid4())}
         asset_h = hashlib.sha256(json.dumps({"prev": prev_h, "reg": reg_h, "load": payload}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        
         new_entry = {"seq": len(ledger) + 1, "prev_hash": prev_h, "reg_hash": reg_h, "asset_id": f"VELO-{payload['uuid'][:8].upper()}", "payload": payload, "asset_hash": asset_h}
         ledger.append(new_entry)
         with open('data/assets.json', 'w') as f: json.dump(ledger, f, indent=4)
         st.rerun()
-else: st.warning("No Additionality available.")
+else:
+    st.warning("No Surplus available for Layer III Issuance. Verify Locked Events in Layer II.")
 
 # --- REGISTRY ---
 st.divider()
-st.subheader("🏦 Institutional Asset Registry")
+st.subheader("🏦 Sovereign Registry")
 for entry in reversed(ledger):
     if not isinstance(entry, dict) or 'payload' not in entry: continue
     with st.expander(f"SEQ: {entry['seq']} | Asset: {entry['asset_id']}"):
@@ -198,12 +216,11 @@ for entry in reversed(ledger):
         with c1:
             st.write(f"**Volume:** {entry['payload']['vol']} tCO2e")
             st.write(f"**Timestamp:** {entry['payload']['ts']}")
-            st.write("**Regulatory Anchor:**")
-            st.markdown(f'<div class="hash-box">{entry["reg_hash"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="hash-box">{entry["asset_hash"]}</div>', unsafe_allow_html=True)
         with c2:
             current_reg_audit = get_regulatory_hash(entry['payload']['raw_events'], entry['payload']['rules'])
             if current_reg_audit == entry['reg_hash']:
-                st.markdown('<p class="audit-pass">✅ Logic & Data Verified</p>', unsafe_allow_html=True)
-            else: st.markdown('<p class="audit-fail">⚠️ Anchor Compromised</p>', unsafe_allow_html=True)
-            asset_json = json.dumps(entry, indent=2)
-            st.download_button("📤 Export Audit-File", asset_json, file_name=f"{entry['asset_id']}.json", mime="application/json")
+                st.markdown('<p class="audit-pass">✅ Layer I-III Audit Pass</p>', unsafe_allow_html=True)
+            else:
+                st.markdown('<p class="audit-fail">⚠️ Integrity Breach</p>', unsafe_allow_html=True)
+            st.download_button("📤 Audit Export", json.dumps(entry, indent=2), file_name=f"{entry['asset_id']}.json")
