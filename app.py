@@ -14,6 +14,15 @@ st.set_page_config(page_title="Velonaut | Integrity Infrastructure", layout="wid
 
 st.markdown("""
     <style>
+            /* Versteckt das GitHub-Logo oben rechts */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Zusätzlicher Schutz: Versteckt das Streamlit-Branding */
+    .stDeployButton {display:none;}
+    </style>
+""", unsafe_allow_html=True)
     .hash-box {
         background-color: #f0f2f6;
         padding: 10px;
