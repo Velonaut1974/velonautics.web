@@ -1,25 +1,86 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velonautics | Regulatory Isolation by Design</title>
     <style>
-    .cta-button {
-        background-color: #0f64a9;
-        color: white;
-        padding: 18px 45px;
-        text-decoration: none;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 18px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(15, 100, 169, 0.2);
-    }
+        .cta-button {
+            background-color: #0f64a9;
+            color: white;
+            padding: 18px 45px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(15, 100, 169, 0.2);
+            display: inline-block;
+        }
 
-    .cta-button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(15, 100, 169, 0.4);
-        background-color: #1277c9;
-    }
-</style>
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(15, 100, 169, 0.4);
+            background-color: #1277c9;
+        }
+
+        .secondary-button {
+            background-color: white;
+            color: #0f64a9;
+            padding: 18px 45px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            border: 2px solid #0f64a9;
+            display: inline-block;
+        }
+
+        .secondary-button:hover {
+            background-color: #f0f7ff;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(15, 100, 169, 0.1);
+        }
+
+        .hover-card:hover { 
+            transform: translateY(-5px); 
+            border-color: #0f64a9 !important; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4); 
+        }
+
+        .modal-overlay { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.9); 
+            z-index: 10000; 
+            justify-content: center; 
+            align-items: center; 
+        }
+
+        .modal-box { 
+            background: white; 
+            padding: 50px; 
+            border-radius: 12px; 
+            max-width: 650px; 
+            width: 90%; 
+            position: relative; 
+            font-family: sans-serif; 
+        }
+
+        .close-modal { 
+            position: absolute; 
+            top: 15px; 
+            right: 25px; 
+            font-size: 35px; 
+            cursor: pointer; 
+            color: #ccc; 
+        }
+    </style>
 </head>
 <body style="margin:0; padding:0; background-color: #ffffff; font-family: sans-serif;">
 
@@ -27,8 +88,8 @@
       <div style="max-width: 900px; margin: auto;">
         
         <div style="margin-bottom: 40px;">
-   <img src="logo-web.png" alt="Velonautics Logo" style="max-height: 180px; width: auto; display: block; margin: 0 auto; transition: 0.3s;">
-</div>
+            <img src="logo-web.png" alt="Velonautics Logo" style="max-height: 180px; width: auto; display: block; margin: 0 auto; transition: 0.3s;">
+        </div>
 
         <p style="text-transform: uppercase; letter-spacing: 2px; font-size: 12px; color: #0f64a9; font-weight: bold; margin-bottom: 20px;">
           Maritime Integrity Infrastructure
@@ -42,260 +103,158 @@
           A decision infrastructure for orchestrating regulatory compliance and voluntary value creation across EU-ETS and FuelEU Maritime.
         </p>
 
-        <div style="margin-top: 50px; display: flex; justify-content: center;">
-    <a href="whitepaper.pdf" target="_blank" class="cta-button">
-        Inspect Whitepaper (v. 04.02.26)
-    </a>
-</div>
+        <div style="margin-top: 50px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <a href="whitepaper.pdf" target="_blank" class="cta-button">
+                Inspect Whitepaper (v. 04.02.26)
+            </a>
+            <a href="https://velonautics-os.streamlit.app/" target="_blank" class="secondary-button">
+                Launch Infrastructure Demo
+            </a>
+        </div>
       </div>
     </header>
-<section style="padding: 100px 20px; background-color: #1a1a1a; color: white; font-family: sans-serif; text-align: center;">
-    <div style="max-width: 1100px; margin: auto;">
-        <h2 style="margin-bottom: 20px; font-size: 32px; letter-spacing: 1px;">The Velonaut Concept</h2>
-        <p style="color: #999; margin-bottom: 60px; font-size: 18px; max-width: 800px; margin-left: auto; margin-right: auto;">
-            Die Brücke zwischen dem physischen Schiffsbetrieb und der digitalen Kohlenstoffökonomie.
-        </p>
-        
-        <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center;">
+
+    <section style="padding: 100px 20px; background-color: #1a1a1a; color: white; text-align: center;">
+        <div style="max-width: 1100px; margin: auto;">
+            <h2 style="margin-bottom: 20px; font-size: 32px; letter-spacing: 1px;">The Velonaut Concept</h2>
+            <p style="color: #999; margin-bottom: 60px; font-size: 18px; max-width: 800px; margin-left: auto; margin-right: auto;">
+                Die Brücke zwischen dem physischen Schiffsbetrieb und der digitalen Kohlenstoffökonomie.
+            </p>
             
-            <div onclick="openVelonautModal('strategic')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
-                <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Strategic Orchestration</h3>
-                <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
-                    Wir kodieren die Komplexität maritimer Regulatorik und verwandeln Compliance in Strategie.
-                </p>
-                <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
-            </div>
-
-            <div onclick="openVelonautModal('integrity')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
-                <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">End-to-End Integrity</h3>
-                <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
-                    Vom Sensor an Bord bis zum handelbaren Asset: Eine lückenlose und unbestechliche Chain-of-Custody.
-                </p>
-                <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
-            </div>
-
-            <div onclick="openVelonautModal('evolution')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
-                <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Asset Evolution</h3>
-                <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
-                    Wir identifizieren Additionality und machen ökologische Vorreiterrollen investierbar.
-                </p>
-                <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
-            </div>
-
-        </div>
-    </div>
-</section>
-
-<div id="velonautModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; padding:20px;">
-    <div style="background:#fff; color:#333; padding:40px; border-radius:12px; max-width:600px; position:relative;">
-        <span onclick="closeVelonautModal()" style="position:absolute; top:15px; right:20px; font-size:30px; cursor:pointer;">&times;</span>
-        <h2 id="modalTitle" style="color:#0f64a9; margin-top:0;"></h2>
-        <div id="modalText" style="line-height:1.8; font-size:16px;"></div>
-    </div>
-</div>
-
-<script>
-const modalContent = {
-    strategic: {
-        title: "Strategic Orchestration",
-        text: "<p>In einer Ära, in der Emissionen direkte finanzielle Kosten verursachen, wird Datenmanagement zur Kernkompetenz. Velonautics ermöglicht es Reedereien, von einer passiven Berichterstattung zu einer proaktiven Steuerung überzugehen.</p><p>Durch die Integration von Marktdaten und regulatorischen Invarianten können Treibstoffmischungen und Routen so optimiert werden, dass Pönalen minimiert und Compliance-Margen maximiert werden. Wir kodieren die Gesetze in operative Logik.</p>"
-    },
-    integrity: {
-        title: "End-to-End Integrity",
-        text: "<p>Vertrauen ist die Währung des Kohlenstoffmarktes. Unsere Architektur sichert die Chain-of-Custody direkt an der Quelle. Durch die Anbindung von Sensoren nach ISO 19848 Standards und die Validierung digitaler Bunkerbelege erzeugen wir einen 'Digital Twin' des Energieflusses.</p><p>Die Isolation Firewall in Layer II sorgt dafür, dass diese Daten manipulationssicher verarbeitet werden. Für Auditoren und Banken bedeutet das: Jedes Zertifikat ist physisch untermauert und mathematisch eindeutig zugewiesen.</p>"
-    },
-    evolution: {
-        title: "Asset Evolution",
-        text: "<p>Wir sehen Compliance nicht als Kostenfaktor, sondern als Startpunkt für neue Asset-Klassen. Wenn ein Schiff die strengen EU-Grenzwerte unterbietet, entsteht 'Additionality' (Zusätzlichkeit).</p><p>Layer III strukturiert diese Überschüsse als Scope-3 Insetting-Assets. Das bedeutet, dass die grüne Leistung direkt an Cargo-Owner verkauft werden kann, die ihre eigene Lieferkette dekarbonisieren müssen. Wir verwandeln regulatorische Last in kommerzielles Kapital.</p>"
-    }
-};
-
-function openVelonautModal(id) {
-    document.getElementById('modalTitle').innerText = modalContent[id].title;
-    document.getElementById('modalText').innerHTML = modalContent[id].text;
-    document.getElementById('velonautModal').style.display = 'flex';
-}
-function closeVelonautModal() {
-    document.getElementById('velonautModal').style.display = 'none';
-}
-</script>
-
-<section style="padding: 100px 20px; max-width: 1200px; margin: auto; font-family: sans-serif;">
-    <h2 style="text-align: center; color: #333; margin-bottom: 15px; font-size: 32px;">The Triple-Layer Architecture</h2>
-    <p style="text-align: center; color: #666; margin-bottom: 50px;">Ein modularer Framework für regulatorische Isolation und unbestechliche Wertschöpfung.</p>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px;">
-        
-        <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
-            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer I</h3>
-            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Compliance Engine</p>
-            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
-                <p>Layer I automatisiert die komplexen MRV-Anforderungen (Monitoring, Reporting, Verification) sowohl für massenbasierte (<strong>EU-ETS</strong>) als auch intensitätsbasierte (<strong>FuelEU Maritime</strong>) Regulierungs-Regime. Durch die direkte Ingestion von <strong>ISO 19848</strong> Datenströmen und digitalen Bunker-Belegen (BDN) wird die physische Realität des Schiffsbetriebs in regulatorische Logik übersetzt.</p>
-                <p>Das System liefert nicht nur rückwirkende Berichte, sondern fungiert als prädiktives Sicherheitsnetz. Durch die Vorhersage zukünftiger Abgabepflichten ermöglicht es Unternehmen, Preisvolatilitäten am Zertifikatemarkt frühzeitig abzufedern und operative Entscheidungen auf Basis verifizierter Compliance-Daten zu treffen.</p>
-            </div>
-            <div style="margin-top: 20px; padding: 15px; background: #eee; border-radius: 6px; font-size: 14px; color: #333; border-left: 4px solid #999;">
-                <strong>Daten-Validierung:</strong><br>
-                • Echtzeit-Ingestion operativer Sensordaten<br>
-                • Abgleich mit digitaler Bunker-Chain-of-Custody<br>
-                • Deterministische Berechnung der Abgabequoten
-            </div>
-        </div>
-
-        <div style="background: #fff; padding: 35px; border-radius: 12px; border: 1px solid #0f64a9; box-shadow: 0 15px 35px rgba(15,100,169,0.15); display: flex; flex-direction: column; transform: scale(1.02); z-index: 10;">
-            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer II</h3>
-            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Isolation Firewall</p>
-            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
-                <div style="margin-bottom: 20px; padding: 15px; background: #eef6fc; color: #0f64a9; border-radius: 6px; font-weight: bold; border-left: 4px solid #0f64a9; font-size: 16px;">
-                    "Es garantiert, dass ein Joule grüner Energie niemals doppelt gezählt wird."
+            <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center;">
+                <div onclick="openVelonautModal('strategic')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
+                    <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Strategic Orchestration</h3>
+                    <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
+                        Wir kodieren die Komplexität maritimer Regulatorik und verwandeln Compliance in Strategie.
+                    </p>
+                    <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
                 </div>
-                <p>Das kryptografische <strong>Joule-Tagging</strong> stellt sicher, dass Umweltattribute, die in Layer I zur Erfüllung gesetzlicher Quoten genutzt wurden, irreversibel gesperrt werden. Diese Schicht bildet das unbestechliche Fundament der Architektur.</p>
-                <p>Innerhalb der State-Machine von Layer II findet die strikte Trennung statt: Erst wenn ein Energie-Event die Firewall passiert und als "Compliance-used" markiert wurde, ist es für Layer III als Additionality-Asset ausgeschlossen. Diese Isolation verhindert Double-Counting auf technischer Ebene, noch bevor ein Markt-Export stattfindet.</p>
-            </div>
-            <div style="margin-top: 20px; padding: 15px; background: #0f64a9; color: white; border-radius: 6px; font-size: 14px;">
-                <strong>Integritäts-Check:</strong> Irreversible Zustandsänderung (Locked-State Logic) für jedes Energie-Asset.
+
+                <div onclick="openVelonautModal('integrity')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
+                    <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">End-to-End Integrity</h3>
+                    <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
+                        Vom Sensor an Bord bis zum handelbaren Asset: Eine lückenlose und unbestechliche Chain-of-Custody.
+                    </p>
+                    <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
+                </div>
+
+                <div onclick="openVelonautModal('evolution')" style="background: #262626; padding: 45px 30px; border-radius: 12px; width: 300px; border: 1px solid #333; transition: 0.3s; text-align: left; cursor: pointer;" class="hover-card">
+                    <h3 style="color: #fff; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #0f64a9; padding-bottom: 10px;">Asset Evolution</h3>
+                    <p style="font-size: 14px; color: #aaa; line-height: 1.7; margin-bottom: 20px;">
+                        Wir identifizieren Additionality und machen ökologische Vorreiterrollen investierbar.
+                    </p>
+                    <small style="color: #0f64a9; text-transform: uppercase; font-weight: bold;">Details anzeigen →</small>
+                </div>
             </div>
         </div>
+    </section>
 
-        <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
-            <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer III</h3>
-            <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Carbon Bank & Export Layer</p>
-            <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
-                <p>Layer III fungiert als ökonomisches Bindeglied zwischen regulatorischer Erfüllung und freiwilliger Wertschöpfung. Hier wird die <strong>Additionality</strong> identifiziert – jene Emissionsminderungen, die über die gesetzlichen Anforderungen hinausgehen.</p>
-                <p>Diese Schicht bündelt die auditierten Überschüsse und strukturiert sie als hochwertige <strong>Scope 3 Insetting-Assets</strong>. Der Velonaut bereitet die Daten für externe Systeme vor, bleibt dabei jedoch <strong>registry-agnostisch</strong>: Die Asset-Semantik ist strikt von der Abwicklungstechnologie getrennt.</p>
+    <section style="padding: 100px 20px; max-width: 1200px; margin: auto;">
+        <h2 style="text-align: center; color: #333; margin-bottom: 15px; font-size: 32px;">The Triple-Layer Architecture</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 50px;">Ein modularer Framework für regulatorische Isolation und unbestechliche Wertschöpfung.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px;">
+            <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
+                <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer I</h3>
+                <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Compliance Engine</p>
+                <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                    <p>Layer I automatisiert die komplexen MRV-Anforderungen für <strong>EU-ETS</strong> und <strong>FuelEU Maritime</strong>. Durch die Ingestion von <strong>ISO 19848</strong> Datenströmen wird Schiffsbetrieb in regulatorische Logik übersetzt.</p>
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #eee; border-radius: 6px; font-size: 14px; color: #333;">
+                    • Echtzeit-Ingestion operativer Daten<br>
+                    • Abgleich mit Bunker-Chain-of-Custody<br>
+                    • Deterministische Abgabequoten
+                </div>
             </div>
-            <div style="margin-top: 20px; padding: 15px; background: #eee; border-radius: 6px; font-size: 14px; color: #333; border-left: 4px solid #999;">
-                <strong>Unterstützte Exportformate:</strong><br>
-                • Blockchain-basierte Token (als Registry-Container)<br>
-                • Einträge in institutionelle Register<br>
-                • Bilaterale Ledger-Transfers für Supply-Chain-Partner
+
+            <div style="background: #fff; padding: 35px; border-radius: 12px; border: 1px solid #0f64a9; box-shadow: 0 15px 35px rgba(15,100,169,0.15); display: flex; flex-direction: column; transform: scale(1.02); z-index: 10;">
+                <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer II</h3>
+                <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Isolation Firewall</p>
+                <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                    <div style="margin-bottom: 20px; padding: 15px; background: #eef6fc; color: #0f64a9; border-radius: 6px; font-weight: bold;">
+                        "Garantiert, dass ein Joule grüner Energie niemals doppelt gezählt wird."
+                    </div>
+                    <p>Das kryptografische <strong>Joule-Tagging</strong> stellt sicher, dass Umweltattribute irreversibel gesperrt werden. Isolation verhindert Double-Counting auf technischer Ebene.</p>
+                </div>
             </div>
-            <p style="font-size: 13px; color: #777; margin-top: 15px; font-style: italic;">
-                Tokenisierung wird zum optionalen Prozessschritt (Asset Logic first, Settlement second).
-            </p>
+
+            <div style="background: #f9f9f9; padding: 35px; border-radius: 12px; border: 1px solid #eee; display: flex; flex-direction: column;">
+                <h3 style="color: #333; margin-top: 0; font-size: 22px;">Layer III</h3>
+                <p style="font-weight: bold; color: #0f64a9; font-size: 14px; text-transform: uppercase; margin-bottom: 20px;">Carbon Bank Layer</p>
+                <div style="font-size: 15px; color: #555; line-height: 1.8; flex-grow: 1;">
+                    <p>Hier wird <strong>Additionality</strong> identifiziert – Emissionsminderungen über gesetzliche Anforderungen hinaus. Diese werden als hochwertige <strong>Scope 3 Insetting-Assets</strong> strukturiert.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="padding: 100px 20px; background-color: #ffffff;">
+        <div style="max-width: 900px; margin: auto; text-align: center;">
+            <h2 style="color: #333; margin-bottom: 15px; font-size: 32px;">The Digital Chain of Custody</h2>
+            <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: space-between; margin-top: 50px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px;">🚢</div>
+                    <h4 style="color: #0f64a9;">1. Erfassung</h4>
+                    <p style="font-size: 14px; color: #666;">Rohdaten von Sensoren und BDN.</p>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px;">🛡️</div>
+                    <h4 style="color: #0f64a9;">2. Versiegelung</h4>
+                    <p style="font-size: 14px; color: #666;">Kryptografischer Zeitstempel.</p>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px;">✅</div>
+                    <h4 style="color: #0f64a9;">3. Verifizierung</h4>
+                    <p style="font-size: 14px; color: #666;">Revisionssicheres Dokument.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer style="padding: 60px 20px; text-align: center; border-top: 1px solid #eaeaea; background: #fdfdfd;">
+        <p style="color: #333; font-weight: bold; margin-bottom: 10px;">VELONAUTICS</p>
+        <div style="font-size: 14px; color: #666;">
+            <a href="legal.html" style="color: #666; text-decoration: none; margin: 0 10px;">Impressum & Datenschutz</a> • 
+            <a href="https://velonautics-os.streamlit.app/" style="color: #0f64a9; text-decoration: none; margin: 0 10px; font-weight: bold;">Launch App Demo</a> • 
+            <a href="dev.html" style="color: #666; text-decoration: none; margin: 0 10px;">For Developers</a> • 
+            <a href="mailto:hello@velonautics.de" style="color: #666; text-decoration: none; margin: 0 10px;">Kontakt</a>
+        </div>
+        <p style="font-size: 11px; color: #999; margin-top: 25px;">© 2026 VELONAUTICS. Integrity by Design.</p>
+    </footer>
+
+    <div id="velonautModal" class="modal-overlay" onclick="closeVelonautModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <span onclick="closeVelonautModal()" class="close-modal">&times;</span>
+            <h2 id="modalTitle" style="color:#0f64a9; margin-top:0;"></h2>
+            <div id="modalText" style="line-height:1.8; font-size:16px; color: #333;"></div>
         </div>
     </div>
 
-    <p style="text-align: center; margin-top: 60px; font-style: italic; color: #444; max-width: 800px; margin-left: auto; margin-right: auto; line-height: 1.6; font-size: 17px;">
-        "Velonautics transformiert regulatorische Lasten in handelbare Werte, indem wir die physische Wahrheit durch <strong>ISO 19848 Datenintegration</strong> und digitale BDN-Validierung im Core festschreiben."
-    </p>
-</section>
-<section style="padding: 100px 20px; background-color: #ffffff; font-family: sans-serif;">
-    <div style="max-width: 900px; margin: auto;">
-        <h2 style="text-align: center; color: #333; margin-bottom: 15px; font-size: 32px;">The Digital Chain of Custody</h2>
-        <p style="text-align: center; color: #666; margin-bottom: 50px;">Vom physischen Ereignis zum unbestechlichen Asset.</p>
+    <script>
+        const modalContent = {
+            strategic: { 
+                title: "Strategic Orchestration", 
+                text: "<p>Velonautics ermöglicht es Reedereien, von einer passiven Berichterstattung zu einer proaktiven Steuerung überzugehen.</p><p>Durch die Integration von Marktdaten und regulatorischen Invarianten können Treibstoffmischungen optimiert werden. Wir kodieren Gesetze in operative Logik.</p>" 
+            },
+            integrity: { 
+                title: "End-to-End Integrity", 
+                text: "<p>Vertrauen via 'Integrity by Design'. Unsere Architektur sichert die Chain-of-Custody direkt an der Quelle nach ISO 19848 Standards.</p><p>Die Isolation Firewall in Layer II sorgt für manipulationssichere Verarbeitung. Jedes Zertifikat ist mathematisch eindeutig zugewiesen.</p>" 
+            },
+            evolution: { 
+                title: "Asset Evolution", 
+                text: "<p>Wir sehen Compliance als Startpunkt für neue Asset-Klassen. Additionality entsteht, wenn Grenzwerte unterboten werden.</p><p>Layer III strukturiert diese Überschüsse als Scope-3 Insetting-Assets. Wir verwandeln regulatorische Last in kommerzielles Kapital.</p>" 
+            }
+        };
 
-        <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: space-between; position: relative;">
-            <div style="flex: 1; min-width: 200px; text-align: center;">
-                <div style="font-size: 24px; margin-bottom: 15px;">🚢</div>
-                <h4 style="color: #0f64a9; margin-bottom: 10px;">1. Erfassung</h4>
-                <p style="font-size: 14px; color: #666; line-height: 1.6;">Rohdaten von Sensoren und digitalen Bunker-Belegen (BDN) bilden die Basis der Realität.</p>
-            </div>
-
-            <div style="flex: 1; min-width: 200px; text-align: center;">
-                <div style="font-size: 24px; margin-bottom: 15px;">🛡️</div>
-                <h4 style="color: #0f64a9; margin-bottom: 10px;">2. Versiegelung</h4>
-                <p style="font-size: 14px; color: #666; line-height: 1.6;">Jeder Datenpunkt erhält bei der Aufnahme einen kryptografischen Zeitstempel (Append-only).</p>
-            </div>
-
-            <div style="flex: 1; min-width: 200px; text-align: center;">
-                <div style="font-size: 24px; margin-bottom: 15px;">⚙️</div>
-                <h4 style="color: #0f64a9; margin-bottom: 10px;">3. Logik-Audit</h4>
-                <p style="font-size: 14px; color: #666; line-height: 1.6;">Die Verrechnung erfolgt deterministisch nach EU-Vorgaben – jederzeit nachvollziehbar.</p>
-            </div>
-
-            <div style="flex: 1; min-width: 200px; text-align: center;">
-                <div style="font-size: 24px; margin-bottom: 15px;">✅</div>
-                <h4 style="color: #0f64a9; margin-bottom: 10px;">4. Verifizierung</h4>
-                <p style="font-size: 14px; color: #666; line-height: 1.6;">Das Resultat ist ein revisionssicheres Dokument für Auditoren, Banken und Partner.</p>
-            </div>
-        </div>
-        
-        <div style="margin-top: 50px; padding: 25px; background: #f8fafc; border-radius: 8px; border-left: 5px solid #0f64a9; font-style: italic; color: #444;">
-            "Integrität lässt sich nicht nachträglich durch Reports erzeugen. Sie muss das Fundament der Datenverarbeitung sein."
-        </div>
-    </div>
-</section>
-<section style="padding: 100px 20px; max-width: 900px; margin: auto; font-family: sans-serif;">
-    <h2 style="text-align: center; color: #333; margin-bottom: 50px; font-size: 32px;">The Regulatory Collision</h2>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px;">
-        
-        <div style="background: #fff; padding: 30px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <h3 style="color: #0f64a9; margin-top: 0;">EU-ETS (Massenbasiert)</h3>
-            <p style="font-weight: bold; font-size: 14px; color: #666; margin-bottom: 20px;">Metrik: Absolute CO2-Emissionen</p>
-            <p style="font-size: 15px; color: #555; line-height: 1.6;">
-                Das EU-Emissionshandelssystem arbeitet nach dem „Cap & Trade“-Prinzip. Schiffsbetreiber müssen für jede verifizierte Tonne CO2 ein Zertifikat (EUA) abgeben. Das Ziel ist die Reduktion des Gesamtvolumens durch finanzielle Anreize.
-            </p>
-        </div>
-
-        <div style="background: #fff; padding: 30px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <h3 style="color: #0f64a9; margin-top: 0;">FuelEU Maritime (Intensität)</h3>
-            <p style="font-weight: bold; font-size: 14px; color: #666; margin-bottom: 20px;">Metrik: Treibhausgasintensität (gCO2e/MJ)</p>
-            <p style="font-size: 15px; color: #555; line-height: 1.6;">
-                FuelEU konzentriert sich auf die Energiequalität. Es setzt Grenzwerte für die Treibhausgasintensität der genutzten Kraftstoffe und belohnt erneuerbare Energien durch „Pooling“. Die strategische Orchestrierung des Kraftstoffmixes ist hier essenziell, um hohe Pönalen zu vermeiden.
-            </p>
-        </div>
-
-    </div>
-</section>
-
-<div id="overlay" class="modal-overlay" onclick="closeModal()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-        <span class="close-modal" onclick="closeModal()">&times;</span>
-        <div id="modalBody"></div>
-    </div>
-</div>
-
-<style>
-    .hover-card:hover { transform: translateY(-5px); border-color: #0f64a9 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
-    .modal-box { background: white; padding: 50px; border-radius: 12px; max-width: 650px; width: 90%; position: relative; font-family: sans-serif; }
-    .close-modal { position: absolute; top: 15px; right: 25px; font-size: 35px; cursor: pointer; color: #ccc; }
-    .acc-icon { color: #0f64a9; font-size: 20px; font-weight: bold; }
-</style>
-
-<script>
-    function toggleAccordion(id) {
-        const content = document.getElementById(id);
-        const isOpen = content.style.display === 'block';
-        document.querySelectorAll('[id^="layer"]').forEach(el => {
-            el.style.display = 'none';
-            el.previousElementSibling.querySelector('.acc-icon').innerText = '+';
-        });
-        if (!isOpen) {
-            content.style.display = 'block';
-            content.previousElementSibling.querySelector('.acc-icon').innerText = '–';
+        function openVelonautModal(id) {
+            document.getElementById('modalTitle').innerText = modalContent[id].title;
+            document.getElementById('modalText').innerHTML = modalContent[id].text;
+            document.getElementById('velonautModal').style.display = 'flex';
         }
-    }
-    const modalContent = {
-        strategic: { title: "Strategic Orchestration", text: "The Velonaut acts as a central nervous system, synchronizing fleet-wide fuel allocation decisions under regulatory and market constraints. It ensures that every nautical mile is economically and regulatorily accounted for." },
-        integrity: { title: "End-to-End Integrity", text: "Trust via 'Integrity by Design'. We secure the chain of custody for environmental attributes from the first data point. Digital bunker notes and onboard monitoring eliminate manual reporting risks." },
-        evolution: { title: "Asset Evolution", text: "Transforming vessels into 'Green Assets'. By capturing additionality that exceeds legal mandates, VELONAUTICS creates a transparent bridge to monetize decarbonization investments." }
-    };
-    function openModal(key) {
-        document.getElementById('modalBody').innerHTML = `<h2 style="color:#0f64a9; margin-top:0;">${modalContent[key].title}</h2><p style="line-height:1.9; font-size:16px; color:#333;">${modalContent[key].text}</p>`;
-        document.getElementById('overlay').style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-    function closeModal() {
-        document.getElementById('overlay').style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-</script>
-    <footer style="padding: 60px 20px; text-align: center; border-top: 1px solid #eaeaea; background: #fdfdfd; font-family: sans-serif;">
-    <p style="color: #333; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px;">VELONAUTICS</p>
-    
-    <div style="font-size: 14px; color: #666; margin-bottom: 15px;">
-        <a href="legal.html" style="color: #666; text-decoration: none; margin: 0 10px;">Impressum & Datenschutz</a> • 
-        <a href="dev.html" style="color: #0f64a9; text-decoration: none; margin: 0 10px; font-weight: bold;">For Developers</a> • 
-        <a href="mailto:hello@velonautics.de?subject=VELONAUTICS%20Inquiry" style="color: #666; text-decoration: none; margin: 0 10px;">Kontakt</a>
-    </div>
 
-    <p style="font-size: 11px; color: #999; margin-top: 25px; line-height: 1.5;">
-        © 2026 VELONAUTICS. <br>
-        Our logic is open for audit. Our integrity is by design.
-    </p>
-</footer>
-
+        function closeVelonautModal() {
+            document.getElementById('velonautModal').style.display = 'none';
+        }
+    </script>
 </body>
 </html>
