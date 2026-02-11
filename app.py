@@ -11,7 +11,6 @@ from core.states import IsolationFirewall
 from core.additionality import AdditionalityEngine
 
 # --- PRÄZISIONSEINSTELLUNG ---
-# Wir nutzen 28 Stellen Präzision (Bankenstandard), um IEEE-Float-Fehler zu eliminieren
 getcontext().prec = 28
 
 # --- KONFIGURATION & STYLING ---
@@ -35,7 +34,7 @@ st.markdown("""
 
 def recompute_surplus_deterministically(raw_events, rules):
     """
-    Berechnet das Surplus exakt nach – ohne Rundungsfehler durch Decimal-Arithmetik.
+    Das mathematische Herzstück. Berechnet das Surplus exakt nach – ohne Rundungsfehler.
     """
     total_balance = Decimal('0')
     target_intensity = Decimal(str(rules['target']))
@@ -45,7 +44,6 @@ def recompute_surplus_deterministically(raw_events, rules):
         ghg = Decimal(str(e['ghg']))
         scope = Decimal(str(e['scope']))
         
-        # Formel: (Target - Actual) * Energy * Scope
         diff = target_intensity - ghg
         total_balance += (diff * mj * scope)
         
@@ -53,14 +51,13 @@ def recompute_surplus_deterministically(raw_events, rules):
 
 def get_regulatory_hash(event_snapshots, rules_snapshot):
     """
-    Ebene 1: Regulatory Hash.
-    Nutzt Strings für alle Zahlenwerte, um Plattform-Unabhängigkeit zu garantieren.
+    Ebene 1: Regulatory Hash. Nutzt Strings für absolute Plattform-Unabhängigkeit.
     """
     canonical_events = []
     for e in sorted(event_snapshots, key=lambda x: str(x['id'])):
         canonical_events.append({
             "id": str(e['id']),
-            "mj": str(e['mj']),   # String-Sovereignty
+            "mj": str(e['mj']),   
             "ghg": str(e['ghg']),
             "scope": str(e['scope'])
         })
@@ -79,13 +76,17 @@ def get_regulatory_hash(event_snapshots, rules_snapshot):
 
 def validate_entire_ledger(ledger):
     """
-    Forensische Prüfung: Sequenz, Chain-Link, Hash-Integrität UND Mathematisches Replay.
+    Vollständiger forensischer Audit: Sequenz, Chain, Hash UND Mathematik.
     """
     errors = []
     last_hash = "0".zfill(64)
     last_seq = 0
     
     for entry in ledger:
+        # Sicherheitsnetz für den Übergang und korrupte Daten:
+        if not isinstance(entry, dict) or 'payload' not in entry or 'asset_hash' not in entry:
+            continue
+            
         p = entry['payload']
         # 1. Sequenz & Chain
         if entry['seq'] != last_seq + 1:
@@ -94,10 +95,13 @@ def validate_entire_ledger(ledger):
             errors.append(f"Chain Break at SEQ {entry['seq']}")
 
         # 2. MATHEMATICAL REPLAY
-        calculated_vol = recompute_surplus_deterministically(p['raw_events'], p['rules'])
-        claimed_vol = Decimal(str(p['vol']))
-        if abs(calculated_vol - claimed_vol) > Decimal('0.000001'):
-            errors.append(f"Math Mismatch SEQ {entry['seq']}: Claimed {claimed_vol}, Recomputed {calculated_vol}")
+        try:
+            calculated_vol = recompute_surplus_deterministically(p['raw_events'], p['rules'])
+            claimed_vol = Decimal(str(p['vol']))
+            if abs(calculated_vol - claimed_vol) > Decimal('0.000001'):
+                errors.append(f"Math Mismatch SEQ {entry['seq']}: Claimed {claimed_vol}, Recomputed {calculated_vol}")
+        except Exception as e:
+            errors.append(f"Math Error SEQ {entry['seq']}: {str(e)}")
 
         # 3. REGULATORY ANCHOR
         recomputed_reg = get_regulatory_hash(p['raw_events'], p['rules'])
@@ -109,22 +113,25 @@ def validate_entire_ledger(ledger):
     
     return len(errors) == 0, errors
 
-# --- DATEN-HANDLING ---
+# --- DATA OPS ---
 
 def load_data():
-    with open('data/fleet.json', 'r') as f:
-        data = json.load(f)
-    fl = Fleet()
-    for v_data in data:
-        vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
-        for e_data in v_data['events']:
-            vessel.add_event(EnergyEvent(
-                id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'],
-                energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'],
-                eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))
-            ))
-        fl.vessels.append(vessel)
-    return fl
+    try:
+        with open('data/fleet.json', 'r') as f:
+            data = json.load(f)
+        fl = Fleet()
+        for v_data in data:
+            vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
+            for e_data in v_data['events']:
+                vessel.add_event(EnergyEvent(
+                    id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'],
+                    energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'],
+                    eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))
+                ))
+            fl.vessels.append(vessel)
+        return fl
+    except:
+        return Fleet()
 
 def save_data(fleet):
     output_data = []
@@ -142,8 +149,11 @@ def save_data(fleet):
 
 def load_ledger():
     try:
-        with open('data/assets.json', 'r') as f: return json.load(f)
-    except: return []
+        with open('data/assets.json', 'r') as f:
+            content = json.load(f)
+            return content if isinstance(content, list) else []
+    except:
+        return []
 
 # --- APP EXECUTION ---
 
@@ -165,7 +175,7 @@ is_valid, chain_errors = validate_entire_ledger(ledger)
 if not is_valid:
     st.error(f"🚨 LEDGER CORRUPTED: {chain_errors[0]}")
 else:
-    st.success("🔒 Institutional Chain of Custody: All Hashes & Mathematics Verified.")
+    st.success("🔒 Institutional Chain of Custody Verified: Mathematics & Hashes Consistent.")
 
 # --- LAYER II: FIREWALL ---
 st.header("🛡️ Layer II: Isolation Firewall")
@@ -190,9 +200,11 @@ balance = fueleu_ui.get_compliance_balance(fleet)
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
     if st.button("🚀 Issue Chained Asset"):
-        prev_h = ledger[-1]['asset_hash'] if ledger else "0".zfill(64)
+        # Den letzten gültigen Hash für die Kette finden
+        valid_ledger = [e for e in ledger if isinstance(e, dict) and 'asset_hash' in e]
+        prev_h = valid_ledger[-1]['asset_hash'] if valid_ledger else "0".zfill(64)
         
-        # 1. Physical Snapshot als STRINGS
+        # 1. Physical Snapshot als STRINGS (für Determinismus)
         raw_events = []
         for e in fleet.get_all_events():
             if e.state != State.RAW:
@@ -208,11 +220,11 @@ if balance > 0:
             "ets_factor": str(ETSEngine(year=selected_year).phase_in_factor)
         }
 
-        # 3. Hashing
+        # 3. Hashing & Payload
         reg_h = get_regulatory_hash(raw_events, rules)
         
         payload = {
-            "vol": str(report.net_surplus), # Als String speichern
+            "vol": str(report.net_surplus), 
             "strat": strategy.value,
             "rules": rules,
             "raw_events": raw_events,
@@ -231,12 +243,17 @@ if balance > 0:
         }
         
         ledger.append(new_entry)
-        with open('data/assets.json', 'w') as f: json.dump(ledger, f, indent=4)
+        with open('data/assets.json', 'w') as f:
+            json.dump(ledger, f, indent=4)
         st.rerun()
+else:
+    st.warning("No Additionality available.")
 
 # --- REGISTRY ---
 st.divider()
+st.subheader("🏦 Institutional Asset Registry")
 for entry in reversed(ledger):
+    if not isinstance(entry, dict) or 'payload' not in entry: continue
     with st.expander(f"SEQ: {entry['seq']} | Asset: {entry['asset_id']}"):
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -245,9 +262,13 @@ for entry in reversed(ledger):
             st.write("**Regulatory Anchor:**")
             st.markdown(f'<div class="hash-box">{entry["reg_hash"]}</div>', unsafe_allow_html=True)
         with c2:
-            # Re-Audit Anchor
+            # Re-Audit Anchor gegen gespeicherte Beweismittel
             current_reg_audit = get_regulatory_hash(entry['payload']['raw_events'], entry['payload']['rules'])
             if current_reg_audit == entry['reg_hash']:
                 st.markdown('<p class="audit-pass">✅ Logic & Data Verified</p>', unsafe_allow_html=True)
             else:
                 st.markdown('<p class="audit-fail">⚠️ Anchor Compromised</p>', unsafe_allow_html=True)
+            
+            # Export-Button
+            asset_json = json.dumps(entry, indent=2)
+            st.download_button("📤 Export Audit-File", asset_json, file_name=f"{entry['asset_id']}.json", mime="application/json")
