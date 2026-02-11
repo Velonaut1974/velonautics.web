@@ -1,23 +1,18 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import List, Optional
+from enum import Enum
 from datetime import datetime
-import uuid
-import hashlib
-import json
 
-# 1. Status Definitionen
 class State(Enum):
-    RAW = "RAW"
-    COMPLIANCE = "LOCKED"
-    MARKET = "MARKETABLE"
+    RAW = "RAW"               # Daten frisch importiert
+    COMPLIANCE = "LOCKED"     # In der Isolation Firewall gesperrt
+    MARKET = "MARKET"         # Als Asset auf Layer III verbrieft
 
 class StrategyMode(Enum):
     CONSERVATIVE = "CONSERVATIVE (30% Buffer)"
     BALANCED = "BALANCED (15% Buffer)"
-    AGGRESSIVE = "AGGRESSIVE (5% Buffer)"
+    AGRESSIVE = "AGGRESSIVE (5% Buffer)"
 
-# 2. Basis-Modelle
 @dataclass
 class EnergyEvent:
     id: str
@@ -27,20 +22,14 @@ class EnergyEvent:
     ghg_intensity: float
     eu_scope_factor: float
     state: State = State.RAW
-
-    @property
-    def emissions_tonnes(self) -> float:
-        """Berechnet die CO2e-Emissionen in Tonnen."""
-        return (self.energy_mj * self.ghg_intensity) / 1_000_000
-
-    def to_dict(self):
-        return {k: (v.value if isinstance(v, Enum) else v) for k, v in self.__dict__.items()}
+    created_at: datetime = field(default_factory=datetime.utcnow)
 
 @dataclass
 class Vessel:
     id: str
     name: str
     vessel_type: str
+    dwt: int = 0  # Neu für v0.5.4.1
     events: List[EnergyEvent] = field(default_factory=list)
 
     def add_event(self, event: EnergyEvent):
@@ -56,15 +45,6 @@ class Fleet:
             all_events.extend(v.events)
         return all_events
 
-# 3. Layer III Modelle (Additionality & Assets)
-@dataclass
-class AdditionalitySurplus:
-    year: int
-    gross_surplus: float
-    risk_buffer: float
-    net_surplus: float
-    strategy_mode: str
-
 @dataclass
 class InsettingAsset:
     asset_id: str
@@ -74,5 +54,4 @@ class InsettingAsset:
     source_data_hash: str
     engine_version: str
     source_event_ids: List[str]
-    verification_status: str = "ISSUED"
     created_at: datetime = field(default_factory=datetime.utcnow)
