@@ -88,11 +88,20 @@ def load_data():
 
 # --- INITIALISIERUNG ---
 fleet = load_data()
-fueleu = FuelEUEngine(year=2025) # Standard
+fueleu = FuelEUEngine(year=2025)
 ets = ETSEngine(year=2025)
 
 st.title("🚢 Velonaut | Maritime Integrity Infrastructure")
-st.caption("v0.4.0-Beta | Institutional Data Provenance & Regulatory Isolation")
+st.caption("v0.4.1-Beta | Institutional Data Provenance & Regulatory Isolation")
+
+# --- NEU: README INTEGRATION ---
+with st.expander("📖 System Documentation & Logic (Quick Guide)"):
+    try:
+        with open("README.md", "r", encoding="utf-8") as f:
+            readme_text = f.read()
+            st.markdown(readme_text)
+    except Exception as e:
+        st.info("Documentation guide is currently being loaded from GitHub...")
 
 # --- SIDEBAR ---
 st.sidebar.header("🕹️ Control Center")
@@ -145,7 +154,7 @@ if balance > 0:
             volume_t_co2e=report.net_surplus,
             strategy_applied=strategy.value,
             source_data_hash=current_hash,
-            engine_version="Velonaut-Core-v0.4.0",
+            engine_version="Velonaut-Core-v0.4.1",
             source_event_ids=[e.id for e in fleet.get_all_events()]
         )
         save_new_asset(new_asset)
