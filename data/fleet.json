@@ -1,52 +1,63 @@
 [
     {
-        "id": "vessel-9412345",
+        "id": "IMO-9876543",
         "name": "MS Velonaut Explorer",
-        "vessel_type": "Product Tanker",
+        "vessel_type": "Post-Panamax Container",
+        "dwt": 155000,
         "events": [
             {
-                "id": "evt-001",
-                "fuel_type": "VLSFO",
-                "energy_mj": 850000,
-                "ghg_intensity": 91.16,
+                "id": "EV-2026-XP-01",
+                "fuel_type": "VLSFO (0.5% Sulfur)",
+                "energy_mj": 1250000.0,
+                "ghg_intensity": 91.6,
                 "eu_scope_factor": 1.0,
-                "state": "LOCKED"
+                "state": "RAW"
             },
             {
-                "id": "evt-002",
-                "fuel_type": "Bio-Methanol",
-                "energy_mj": 420000,
-                "ghg_intensity": 15.20,
+                "id": "EV-2026-XP-02",
+                "fuel_type": "LBM (Liquefied Bio-Methane)",
+                "energy_mj": 450000.0,
+                "ghg_intensity": 18.2,
                 "eu_scope_factor": 1.0,
                 "state": "RAW"
             }
         ]
     },
     {
-        "id": "vessel-9876543",
-        "name": "Tanker Alpha",
-        "vessel_type": "LNG Carrier",
+        "id": "IMO-9432100",
+        "name": "Aframax Orion",
+        "vessel_type": "Crude Oil Tanker",
+        "dwt": 115000,
         "events": [
             {
-                "id": "evt-101",
-                "fuel_type": "LNG",
-                "energy_mj": 1200000,
-                "ghg_intensity": 75.00,
+                "id": "EV-2026-AO-01",
+                "fuel_type": "MGO (Low Sulfur)",
+                "energy_mj": 2800000.0,
+                "ghg_intensity": 88.0,
                 "eu_scope_factor": 0.5,
                 "state": "RAW"
             }
         ]
     },
     {
-        "id": "vessel-9223344",
+        "id": "IMO-9214567",
         "name": "Essberger Tribute",
         "vessel_type": "Chemical Tanker",
+        "dwt": 13500,
         "events": [
             {
-                "id": "evt-201",
-                "fuel_type": "VLSFO",
-                "energy_mj": 300000,
-                "ghg_intensity": 91.16,
+                "id": "EV-2026-ET-01",
+                "fuel_type": "HFO",
+                "energy_mj": 650000.0,
+                "ghg_intensity": 94.1,
+                "eu_scope_factor": 1.0,
+                "state": "RAW"
+            },
+            {
+                "id": "EV-2026-ET-02",
+                "fuel_type": "FAME (Bio-Diesel)",
+                "energy_mj": 150000.0,
+                "ghg_intensity": 28.5,
                 "eu_scope_factor": 1.0,
                 "state": "RAW"
             }
