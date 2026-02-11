@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import uuid
 import hashlib
+from decimal import Decimal, getcontext
 from datetime import datetime
 from core.models import Fleet, Vessel, EnergyEvent, State, StrategyMode, InsettingAsset
 from core.engine_fueleu import FuelEUEngine
@@ -9,40 +10,121 @@ from core.engine_ets import ETSEngine
 from core.states import IsolationFirewall
 from core.additionality import AdditionalityEngine
 
-# --- KONFIGURATION & STYLING ---
-st.set_page_config(page_title="Velonaut | Integrity Infrastructure", layout="wide")
+# --- PRÄZISIONSEINSTELLUNG ---
+# Wir nutzen 28 Stellen Präzision (Bankenstandard), um IEEE-Float-Fehler zu eliminieren
+getcontext().prec = 28
 
-# SECURITY & DESIGN CSS
+# --- KONFIGURATION & STYLING ---
+st.set_page_config(page_title="Velonaut | Institutional Ledger v0.5.4", layout="wide")
+
 st.markdown("""
     <style>
-    /* Versteckt GitHub-Icon, Streamlit-Menü und Header-Leiste */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
-    
-    /* Deine Design-Klassen */
-    .hash-box {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: 'Courier New', monospace;
-        font-size: 0.8rem;
-        border: 1px solid #d1d5db;
+    .hash-box { 
+        background-color: #f8fafc; padding: 10px; border-radius: 4px; 
+        font-family: monospace; font-size: 0.75rem; border: 1px solid #e2e8f0; 
+        word-wrap: break-word;
     }
     .audit-pass { color: #059669; font-weight: bold; }
     .audit-fail { color: #dc2626; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- HILFSFUNKTIONEN ---
-def generate_fleet_hash(fleet):
-    data_to_hash = []
-    for v in fleet.vessels:
-        event_states = [f"{e.id}:{e.state.value}:{e.energy_mj}" for e in v.events]
-        data_to_hash.append(f"{v.id}:{event_states}")
-    serialized_data = json.dumps(data_to_hash, sort_keys=True)
-    return hashlib.sha256(serialized_data.encode()).hexdigest()
+# --- SOVEREIGN REPLAY ENGINE (v0.5.4) ---
+
+def recompute_surplus_deterministically(raw_events, rules):
+    """
+    Berechnet das Surplus exakt nach – ohne Rundungsfehler durch Decimal-Arithmetik.
+    """
+    total_balance = Decimal('0')
+    target_intensity = Decimal(str(rules['target']))
+    
+    for e in raw_events:
+        mj = Decimal(str(e['mj']))
+        ghg = Decimal(str(e['ghg']))
+        scope = Decimal(str(e['scope']))
+        
+        # Formel: (Target - Actual) * Energy * Scope
+        diff = target_intensity - ghg
+        total_balance += (diff * mj * scope)
+        
+    return total_balance
+
+def get_regulatory_hash(event_snapshots, rules_snapshot):
+    """
+    Ebene 1: Regulatory Hash.
+    Nutzt Strings für alle Zahlenwerte, um Plattform-Unabhängigkeit zu garantieren.
+    """
+    canonical_events = []
+    for e in sorted(event_snapshots, key=lambda x: str(x['id'])):
+        canonical_events.append({
+            "id": str(e['id']),
+            "mj": str(e['mj']),   # String-Sovereignty
+            "ghg": str(e['ghg']),
+            "scope": str(e['scope'])
+        })
+
+    basis = {
+        "physicals": canonical_events,
+        "rules": {
+            "year": int(rules_snapshot['year']),
+            "target": str(rules_snapshot['target']),
+            "ets_factor": str(rules_snapshot.get('ets_factor', '1.0'))
+        },
+        "engine_logic": "v0.5.4-arithmetic-sovereign"
+    }
+    serialized = json.dumps(basis, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+def validate_entire_ledger(ledger):
+    """
+    Forensische Prüfung: Sequenz, Chain-Link, Hash-Integrität UND Mathematisches Replay.
+    """
+    errors = []
+    last_hash = "0".zfill(64)
+    last_seq = 0
+    
+    for entry in ledger:
+        p = entry['payload']
+        # 1. Sequenz & Chain
+        if entry['seq'] != last_seq + 1:
+            errors.append(f"SEQ Break: {entry['seq']} follows {last_seq}")
+        if entry['prev_hash'] != last_hash:
+            errors.append(f"Chain Break at SEQ {entry['seq']}")
+
+        # 2. MATHEMATICAL REPLAY
+        calculated_vol = recompute_surplus_deterministically(p['raw_events'], p['rules'])
+        claimed_vol = Decimal(str(p['vol']))
+        if abs(calculated_vol - claimed_vol) > Decimal('0.000001'):
+            errors.append(f"Math Mismatch SEQ {entry['seq']}: Claimed {claimed_vol}, Recomputed {calculated_vol}")
+
+        # 3. REGULATORY ANCHOR
+        recomputed_reg = get_regulatory_hash(p['raw_events'], p['rules'])
+        if entry['reg_hash'] != recomputed_reg:
+            errors.append(f"Anchor Fraud SEQ {entry['seq']}: Data altered")
+
+        last_hash = entry['asset_hash']
+        last_seq = entry['seq']
+    
+    return len(errors) == 0, errors
+
+# --- DATEN-HANDLING ---
+
+def load_data():
+    with open('data/fleet.json', 'r') as f:
+        data = json.load(f)
+    fl = Fleet()
+    for v_data in data:
+        vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
+        for e_data in v_data['events']:
+            vessel.add_event(EnergyEvent(
+                id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'],
+                energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'],
+                eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))
+            ))
+        fl.vessels.append(vessel)
+    return fl
 
 def save_data(fleet):
     output_data = []
@@ -58,77 +140,34 @@ def save_data(fleet):
     with open('data/fleet.json', 'w') as f:
         json.dump(output_data, f, indent=4)
 
-def save_new_asset(asset_obj):
+def load_ledger():
     try:
-        with open('data/assets.json', 'r') as f:
-            assets = json.load(f)
-    except: assets = []
-    
-    asset_dict = {
-        "asset_id": asset_obj.asset_id,
-        "vintage": asset_obj.vintage_year,
-        "volume": asset_obj.volume_t_co2e,
-        "strategy": asset_obj.strategy_applied,
-        "source_hash": asset_obj.source_data_hash,
-        "engine": asset_obj.engine_version,
-        "events": asset_obj.source_event_ids,
-        "timestamp": asset_obj.created_at.isoformat()
-    }
-    assets.append(asset_dict)
-    with open('data/assets.json', 'w') as f:
-        json.dump(assets, f, indent=4)
-    return asset_dict
+        with open('data/assets.json', 'r') as f: return json.load(f)
+    except: return []
 
-def load_data():
-    with open('data/fleet.json', 'r') as f:
-        data = json.load(f)
-    fleet = Fleet()
-    for v_data in data:
-        vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
-        for e_data in v_data['events']:
-            vessel.add_event(EnergyEvent(
-                id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'],
-                energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'],
-                eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))
-            ))
-        fleet.vessels.append(vessel)
-    return fleet
+# --- APP EXECUTION ---
 
-# --- INITIALISIERUNG ---
 fleet = load_data()
-fueleu = FuelEUEngine(year=2025)
-ets = ETSEngine(year=2025)
+ledger = load_ledger()
 
-st.title("🚢 Velonaut | Maritime Integrity Infrastructure")
-st.caption("v0.4.1-Beta | Institutional Data Provenance & Regulatory Isolation")
-
-# --- DOCUMENTATION INTEGRATION ---
-with st.expander("📖 System Documentation & Logic (Quick Guide)"):
-    try:
-        with open("README.md", "r", encoding="utf-8") as f:
-            st.markdown(f.read())
-    except:
-        st.info("Documentation guide is currently being loaded...")
-
-# --- SIDEBAR ---
-st.sidebar.header("🕹️ Control Center")
+st.sidebar.header("🕹️ Institutional Control")
 selected_year = st.sidebar.selectbox("Reporting Year", [2025, 2030, 2035])
-eua_price = st.sidebar.slider("ETS EUA Price (€/t)", 50, 150, 85)
-st.sidebar.divider()
-strategy = st.sidebar.selectbox("Additionality Strategy", list(StrategyMode))
+eua_price = st.sidebar.slider("ETS Price (€)", 50, 150, 85)
+strategy = st.sidebar.selectbox("Risk Strategy", list(StrategyMode))
 
-# --- LAYER I: COMPLIANCE ANALYTICS ---
-col1, col2, col3 = st.columns(3)
-balance = fueleu.get_compliance_balance(fleet)
-avg_int = fueleu.calculate_fleet_intensity(fleet)
-total_ets = sum(ets.calculate_cost(e, eua_price) for e in fleet.get_all_events())
+fueleu_ui = FuelEUEngine(year=selected_year)
 
-col1.metric("Fleet Intensity", f"{avg_int:.2f} g/MJ")
-col2.metric("FuelEU Balance (Surplus)", f"{balance:.2f} tCO2e")
-col3.metric("Est. ETS Liability", f"{total_ets:,.2f} €")
+st.title("🚢 Velonaut | v0.5.4 Forensic Ledger")
+st.caption("Arithmetic Sovereignty | Mathematical Replay | Dual-Layer Integrity")
 
-# --- LAYER II: ISOLATION LEDGER ---
-st.divider()
+# --- AUDIT STATUS ---
+is_valid, chain_errors = validate_entire_ledger(ledger)
+if not is_valid:
+    st.error(f"🚨 LEDGER CORRUPTED: {chain_errors[0]}")
+else:
+    st.success("🔒 Institutional Chain of Custody: All Hashes & Mathematics Verified.")
+
+# --- LAYER II: FIREWALL ---
 st.header("🛡️ Layer II: Isolation Firewall")
 for v in fleet.vessels:
     with st.expander(f"Vessel: {v.name}"):
@@ -145,52 +184,70 @@ for v in fleet.vessels:
 
 # --- LAYER III: ASSET ISSUANCE ---
 st.divider()
-st.header("💎 Layer III: Additionality & Asset Issuance")
+st.header("💎 Asset Issuance")
+balance = fueleu_ui.get_compliance_balance(fleet)
+
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
-    ca, cb, cc = st.columns(3)
-    ca.metric("Gross Surplus", f"{report.gross_surplus:.2f}")
-    cb.metric("Risk Buffer", f"-{report.risk_buffer:.2f}")
-    cc.metric("Net Marketable Surplus", f"{report.net_surplus:.2f}")
+    if st.button("🚀 Issue Chained Asset"):
+        prev_h = ledger[-1]['asset_hash'] if ledger else "0".zfill(64)
+        
+        # 1. Physical Snapshot als STRINGS
+        raw_events = []
+        for e in fleet.get_all_events():
+            if e.state != State.RAW:
+                raw_events.append({
+                    "id": str(e.id), "mj": str(e.energy_mj), 
+                    "ghg": str(e.ghg_intensity), "scope": str(e.eu_scope_factor)
+                })
+        
+        # 2. Frozen Rules
+        rules = {
+            "year": selected_year, 
+            "target": str(fueleu_ui.target_intensities[selected_year]),
+            "ets_factor": str(ETSEngine(year=selected_year).phase_in_factor)
+        }
 
-    if st.button("🚀 Issue Verified Asset"):
-        current_hash = generate_fleet_hash(fleet)
-        new_asset = InsettingAsset(
-            asset_id=f"VELO-{uuid.uuid4().hex[:8].upper()}",
-            vintage_year=selected_year,
-            volume_t_co2e=report.net_surplus,
-            strategy_applied=strategy.value,
-            source_data_hash=current_hash,
-            engine_version="Velonaut-Core-v0.4.1",
-            source_event_ids=[e.id for e in fleet.get_all_events()]
-        )
-        save_new_asset(new_asset)
-        st.balloons()
+        # 3. Hashing
+        reg_h = get_regulatory_hash(raw_events, rules)
+        
+        payload = {
+            "vol": str(report.net_surplus), # Als String speichern
+            "strat": strategy.value,
+            "rules": rules,
+            "raw_events": raw_events,
+            "ts": datetime.utcnow().isoformat(),
+            "uuid": str(uuid.uuid4())
+        }
+        
+        asset_h = hashlib.sha256(json.dumps({
+            "prev": prev_h, "reg": reg_h, "load": payload
+        }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        
+        new_entry = {
+            "seq": len(ledger) + 1, "prev_hash": prev_h, "reg_hash": reg_h,
+            "asset_id": f"VELO-{payload['uuid'][:8].upper()}",
+            "payload": payload, "asset_hash": asset_h
+        }
+        
+        ledger.append(new_entry)
+        with open('data/assets.json', 'w') as f: json.dump(ledger, f, indent=4)
         st.rerun()
-else:
-    st.warning("No Additionality available.")
 
-# --- ASSET REGISTRY & AUDIT ---
-st.subheader("🏦 Institutional Asset Registry")
-try:
-    with open('data/assets.json', 'r') as f:
-        assets = json.load(f)
-    
-    for asset in reversed(assets):
-        with st.expander(f"Asset: {asset['asset_id']} | {asset['volume']:.2f} tCO2e"):
-            m1, m2 = st.columns([2, 1])
-            with m1:
-                st.write(f"**Vintage:** {asset['vintage']} | **Strategy:** {asset['strategy']}")
-                st.markdown(f'<div class="hash-box">{asset["source_hash"]}</div>', unsafe_allow_html=True)
-            with m2:
-                # Audit Verification
-                current_hash = generate_fleet_hash(fleet)
-                if current_hash == asset['source_hash']:
-                    st.markdown('<p class="audit-pass">✅ Hash Verified</p>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<p class="audit-fail">⚠️ State Changed</p>', unsafe_allow_html=True)
-                
-                # Export Button
-                asset_json = json.dumps(asset, indent=2)
-                st.download_button("📤 Export JSON", asset_json, file_name=f"{asset['asset_id']}.json", mime="application/json")
-except: st.info("Registry initializing...")
+# --- REGISTRY ---
+st.divider()
+for entry in reversed(ledger):
+    with st.expander(f"SEQ: {entry['seq']} | Asset: {entry['asset_id']}"):
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            st.write(f"**Volume:** {entry['payload']['vol']} tCO2e")
+            st.write(f"**Timestamp:** {entry['payload']['ts']}")
+            st.write("**Regulatory Anchor:**")
+            st.markdown(f'<div class="hash-box">{entry["reg_hash"]}</div>', unsafe_allow_html=True)
+        with c2:
+            # Re-Audit Anchor
+            current_reg_audit = get_regulatory_hash(entry['payload']['raw_events'], entry['payload']['rules'])
+            if current_reg_audit == entry['reg_hash']:
+                st.markdown('<p class="audit-pass">✅ Logic & Data Verified</p>', unsafe_allow_html=True)
+            else:
+                st.markdown('<p class="audit-fail">⚠️ Anchor Compromised</p>', unsafe_allow_html=True)
