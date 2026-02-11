@@ -94,14 +94,13 @@ ets = ETSEngine(year=2025)
 st.title("🚢 Velonaut | Maritime Integrity Infrastructure")
 st.caption("v0.4.1-Beta | Institutional Data Provenance & Regulatory Isolation")
 
-# --- NEU: README INTEGRATION ---
+# --- DOCUMENTATION INTEGRATION ---
 with st.expander("📖 System Documentation & Logic (Quick Guide)"):
     try:
         with open("README.md", "r", encoding="utf-8") as f:
-            readme_text = f.read()
-            st.markdown(readme_text)
-    except Exception as e:
-        st.info("Documentation guide is currently being loaded from GitHub...")
+            st.markdown(f.read())
+    except:
+        st.info("Documentation guide is currently being loaded...")
 
 # --- SIDEBAR ---
 st.sidebar.header("🕹️ Control Center")
@@ -109,6 +108,10 @@ selected_year = st.sidebar.selectbox("Reporting Year", [2025, 2030, 2035])
 eua_price = st.sidebar.slider("ETS EUA Price (€/t)", 50, 150, 85)
 st.sidebar.divider()
 strategy = st.sidebar.selectbox("Additionality Strategy", list(StrategyMode))
+
+# --- LINK ZURÜCK ZUR HOMEPAGE ---
+st.sidebar.divider()
+st.sidebar.link_button("🌐 Back to Velonautics.de", "https://velonautics.de")
 
 # --- LAYER I: COMPLIANCE ANALYTICS ---
 col1, col2, col3 = st.columns(3)
