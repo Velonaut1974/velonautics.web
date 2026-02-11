@@ -33,35 +33,23 @@ st.markdown("""
 # --- SOVEREIGN REPLAY ENGINE (v0.5.4) ---
 
 def recompute_surplus_deterministically(raw_events, rules):
-    """
-    Das mathematische Herzstück. Berechnet das Surplus exakt nach – ohne Rundungsfehler.
-    """
     total_balance = Decimal('0')
     target_intensity = Decimal(str(rules['target']))
-    
     for e in raw_events:
         mj = Decimal(str(e['mj']))
         ghg = Decimal(str(e['ghg']))
         scope = Decimal(str(e['scope']))
-        
         diff = target_intensity - ghg
         total_balance += (diff * mj * scope)
-        
     return total_balance
 
 def get_regulatory_hash(event_snapshots, rules_snapshot):
-    """
-    Ebene 1: Regulatory Hash. Nutzt Strings für absolute Plattform-Unabhängigkeit.
-    """
     canonical_events = []
     for e in sorted(event_snapshots, key=lambda x: str(x['id'])):
         canonical_events.append({
-            "id": str(e['id']),
-            "mj": str(e['mj']),   
-            "ghg": str(e['ghg']),
-            "scope": str(e['scope'])
+            "id": str(e['id']), "mj": str(e['mj']),   
+            "ghg": str(e['ghg']), "scope": str(e['scope'])
         })
-
     basis = {
         "physicals": canonical_events,
         "rules": {
@@ -75,42 +63,29 @@ def get_regulatory_hash(event_snapshots, rules_snapshot):
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 def validate_entire_ledger(ledger):
-    """
-    Vollständiger forensischer Audit: Sequenz, Chain, Hash UND Mathematik.
-    """
     errors = []
     last_hash = "0".zfill(64)
     last_seq = 0
-    
     for entry in ledger:
-        # Sicherheitsnetz für den Übergang und korrupte Daten:
         if not isinstance(entry, dict) or 'payload' not in entry or 'asset_hash' not in entry:
             continue
-            
         p = entry['payload']
-        # 1. Sequenz & Chain
         if entry['seq'] != last_seq + 1:
             errors.append(f"SEQ Break: {entry['seq']} follows {last_seq}")
         if entry['prev_hash'] != last_hash:
             errors.append(f"Chain Break at SEQ {entry['seq']}")
-
-        # 2. MATHEMATICAL REPLAY
         try:
             calculated_vol = recompute_surplus_deterministically(p['raw_events'], p['rules'])
             claimed_vol = Decimal(str(p['vol']))
             if abs(calculated_vol - claimed_vol) > Decimal('0.000001'):
-                errors.append(f"Math Mismatch SEQ {entry['seq']}: Claimed {claimed_vol}, Recomputed {calculated_vol}")
-        except Exception as e:
-            errors.append(f"Math Error SEQ {entry['seq']}: {str(e)}")
-
-        # 3. REGULATORY ANCHOR
+                errors.append(f"Math Mismatch SEQ {entry['seq']}")
+        except:
+            errors.append(f"Math Error SEQ {entry['seq']}")
         recomputed_reg = get_regulatory_hash(p['raw_events'], p['rules'])
         if entry['reg_hash'] != recomputed_reg:
-            errors.append(f"Anchor Fraud SEQ {entry['seq']}: Data altered")
-
+            errors.append(f"Anchor Fraud SEQ {entry['seq']}")
         last_hash = entry['asset_hash']
         last_seq = entry['seq']
-    
     return len(errors) == 0, errors
 
 # --- DATA OPS ---
@@ -123,37 +98,26 @@ def load_data():
         for v_data in data:
             vessel = Vessel(id=v_data['id'], name=v_data['name'], vessel_type=v_data['vessel_type'])
             for e_data in v_data['events']:
-                vessel.add_event(EnergyEvent(
-                    id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'],
-                    energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'],
-                    eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))
-                ))
+                vessel.add_event(EnergyEvent(id=e_data['id'], vessel_id=v_data['id'], fuel_type=e_data['fuel_type'], energy_mj=e_data['energy_mj'], ghg_intensity=e_data['ghg_intensity'], eu_scope_factor=e_data['eu_scope_factor'], state=State(e_data.get('state', 'RAW'))))
             fl.vessels.append(vessel)
         return fl
-    except:
-        return Fleet()
+    except: return Fleet()
 
 def save_data(fleet):
     output_data = []
     for v in fleet.vessels:
         v_dict = {"id": v.id, "name": v.name, "vessel_type": v.vessel_type, "events": []}
         for e in v.events:
-            v_dict["events"].append({
-                "id": e.id, "fuel_type": e.fuel_type, "energy_mj": e.energy_mj,
-                "ghg_intensity": e.ghg_intensity, "eu_scope_factor": e.eu_scope_factor,
-                "state": e.state.value
-            })
+            v_dict["events"].append({"id": e.id, "fuel_type": e.fuel_type, "energy_mj": e.energy_mj, "ghg_intensity": e.ghg_intensity, "eu_scope_factor": e.eu_scope_factor, "state": e.state.value})
         output_data.append(v_dict)
-    with open('data/fleet.json', 'w') as f:
-        json.dump(output_data, f, indent=4)
+    with open('data/fleet.json', 'w') as f: json.dump(output_data, f, indent=4)
 
 def load_ledger():
     try:
         with open('data/assets.json', 'r') as f:
             content = json.load(f)
             return content if isinstance(content, list) else []
-    except:
-        return []
+    except: return []
 
 # --- APP EXECUTION ---
 
@@ -169,6 +133,14 @@ fueleu_ui = FuelEUEngine(year=selected_year)
 
 st.title("🚢 Velonaut | v0.5.4 Forensic Ledger")
 st.caption("Arithmetic Sovereignty | Mathematical Replay | Dual-Layer Integrity")
+
+# --- README SEKTION (WIEDER DA) ---
+with st.expander("📖 System Documentation & Logic (Quick Guide)"):
+    try:
+        with open("README.md", "r", encoding="utf-8") as f:
+            st.markdown(f.read())
+    except:
+        st.info("Documentation guide (README.md) not found in repository.")
 
 # --- AUDIT STATUS ---
 is_valid, chain_errors = validate_entire_ledger(ledger)
@@ -200,54 +172,21 @@ balance = fueleu_ui.get_compliance_balance(fleet)
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
     if st.button("🚀 Issue Chained Asset"):
-        # Den letzten gültigen Hash für die Kette finden
         valid_ledger = [e for e in ledger if isinstance(e, dict) and 'asset_hash' in e]
         prev_h = valid_ledger[-1]['asset_hash'] if valid_ledger else "0".zfill(64)
-        
-        # 1. Physical Snapshot als STRINGS (für Determinismus)
         raw_events = []
         for e in fleet.get_all_events():
             if e.state != State.RAW:
-                raw_events.append({
-                    "id": str(e.id), "mj": str(e.energy_mj), 
-                    "ghg": str(e.ghg_intensity), "scope": str(e.eu_scope_factor)
-                })
-        
-        # 2. Frozen Rules
-        rules = {
-            "year": selected_year, 
-            "target": str(fueleu_ui.target_intensities[selected_year]),
-            "ets_factor": str(ETSEngine(year=selected_year).phase_in_factor)
-        }
-
-        # 3. Hashing & Payload
+                raw_events.append({"id": str(e.id), "mj": str(e.energy_mj), "ghg": str(e.ghg_intensity), "scope": str(e.eu_scope_factor)})
+        rules = {"year": selected_year, "target": str(fueleu_ui.target_intensities[selected_year]), "ets_factor": str(ETSEngine(year=selected_year).phase_in_factor)}
         reg_h = get_regulatory_hash(raw_events, rules)
-        
-        payload = {
-            "vol": str(report.net_surplus), 
-            "strat": strategy.value,
-            "rules": rules,
-            "raw_events": raw_events,
-            "ts": datetime.utcnow().isoformat(),
-            "uuid": str(uuid.uuid4())
-        }
-        
-        asset_h = hashlib.sha256(json.dumps({
-            "prev": prev_h, "reg": reg_h, "load": payload
-        }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        
-        new_entry = {
-            "seq": len(ledger) + 1, "prev_hash": prev_h, "reg_hash": reg_h,
-            "asset_id": f"VELO-{payload['uuid'][:8].upper()}",
-            "payload": payload, "asset_hash": asset_h
-        }
-        
+        payload = {"vol": str(report.net_surplus), "strat": strategy.value, "rules": rules, "raw_events": raw_events, "ts": datetime.utcnow().isoformat(), "uuid": str(uuid.uuid4())}
+        asset_h = hashlib.sha256(json.dumps({"prev": prev_h, "reg": reg_h, "load": payload}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        new_entry = {"seq": len(ledger) + 1, "prev_hash": prev_h, "reg_hash": reg_h, "asset_id": f"VELO-{payload['uuid'][:8].upper()}", "payload": payload, "asset_hash": asset_h}
         ledger.append(new_entry)
-        with open('data/assets.json', 'w') as f:
-            json.dump(ledger, f, indent=4)
+        with open('data/assets.json', 'w') as f: json.dump(ledger, f, indent=4)
         st.rerun()
-else:
-    st.warning("No Additionality available.")
+else: st.warning("No Additionality available.")
 
 # --- REGISTRY ---
 st.divider()
@@ -262,13 +201,9 @@ for entry in reversed(ledger):
             st.write("**Regulatory Anchor:**")
             st.markdown(f'<div class="hash-box">{entry["reg_hash"]}</div>', unsafe_allow_html=True)
         with c2:
-            # Re-Audit Anchor gegen gespeicherte Beweismittel
             current_reg_audit = get_regulatory_hash(entry['payload']['raw_events'], entry['payload']['rules'])
             if current_reg_audit == entry['reg_hash']:
                 st.markdown('<p class="audit-pass">✅ Logic & Data Verified</p>', unsafe_allow_html=True)
-            else:
-                st.markdown('<p class="audit-fail">⚠️ Anchor Compromised</p>', unsafe_allow_html=True)
-            
-            # Export-Button
+            else: st.markdown('<p class="audit-fail">⚠️ Anchor Compromised</p>', unsafe_allow_html=True)
             asset_json = json.dumps(entry, indent=2)
             st.download_button("📤 Export Audit-File", asset_json, file_name=f"{entry['asset_id']}.json", mime="application/json")
