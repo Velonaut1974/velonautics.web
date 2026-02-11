@@ -1,15 +1,1 @@
-[
-    {
-        "asset_id": "VELO-0697AA21",
-        "vintage": 2025,
-        "volume": 14.932400000000003,
-        "strategy": "CONSERVATIVE (30% Buffer)",
-        "source_hash": "90569daeb071bbaed7b733ce425c2bc478a0ea9a69640a76faae34609972d4cf",
-        "engine": "Velonaut-Core-v0.3.1-Beta",
-        "events": [
-            "ev-101",
-            "ev-201"
-        ],
-        "timestamp": "2026-02-11T16:49:18.171770"
-    }
-]
+[]
