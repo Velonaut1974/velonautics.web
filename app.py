@@ -12,17 +12,16 @@ from core.additionality import AdditionalityEngine
 # --- KONFIGURATION & STYLING ---
 st.set_page_config(page_title="Velonaut | Integrity Infrastructure", layout="wide")
 
+# SECURITY & DESIGN CSS
 st.markdown("""
     <style>
-            /* Versteckt das GitHub-Logo oben rechts */
+    /* Versteckt GitHub-Icon, Streamlit-Menü und Header-Leiste */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Zusätzlicher Schutz: Versteckt das Streamlit-Branding */
     .stDeployButton {display:none;}
-    </style>
-""", unsafe_allow_html=True)
+    
+    /* Deine Design-Klassen */
     .hash-box {
         background-color: #f0f2f6;
         padding: 10px;
