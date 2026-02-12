@@ -1,160 +1,289 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Velonautics | Developer Manifest</title>
+<title>Velonaut | Core Technical Specification</title>
+
 <style>
-:root { --main-blue: #0f64a9; --bg-dark: #1a1a1a; }
-
-body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #333; margin: 0; background: #fdfdfd; }
-header { background: var(--bg-dark); color: white; padding: 80px 20px; text-align: center; }
-header h1 { font-size: 40px; margin: 0; }
-header p { color: #bbb; margin-top: 15px; font-size: 18px; }
-
-.container { max-width: 900px; margin: auto; padding: 40px 20px; }
-.manifesto-box { background: white; border: 1px solid #eee; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-.section-title { color: var(--main-blue); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 50px; text-transform: uppercase; font-size: 18px; letter-spacing: 1px; }
-.highlight { border-left: 5px solid var(--main-blue); padding-left: 20px; font-style: italic; margin: 30px 0; color: #444; font-size: 1.1em; transition: 0.3s; }
-.highlight:hover { background: #f9f9f9; transform: translateX(5px); }
-
-.svg-container { position: relative; width: 100%; max-width: 550px; margin: 40px auto; text-align: center; }
-.tooltip { 
-    position: absolute; background: rgba(15, 100, 169, 0.98); color: white; padding: 12px; border-radius: 6px; 
-    font-size: 12px; pointer-events: none; z-index: 100; max-width: 250px; opacity: 0; transition: opacity 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2); line-height: 1.4;
+:root {
+    --main-blue: #0f64a9;
+    --dark: #1a1a1a;
+    --light: #f8fafc;
 }
 
-@keyframes flowLine { to { stroke-dashoffset: -20; } }
-.flow-path { stroke-dasharray: 5; animation: flowLine 2s linear infinite; }
-
-@keyframes firewallPulse {
-    0% { filter: drop-shadow(0 0 2px rgba(15,100,169,0.4)); }
-    50% { filter: drop-shadow(0 0 10px rgba(15,100,169,0.8)); }
-    100% { filter: drop-shadow(0 0 2px rgba(15,100,169,0.4)); }
-}
-.firewall-glow { animation: firewallPulse 3s ease-in-out infinite; cursor: help; }
-.interactive-layer { cursor: help; transition: 0.3s; }
-.interactive-layer:hover { fill-opacity: 0.8; }
-
-pre.api-block { 
-    background: #333; color: #fff; padding: 25px; border-radius: 8px; font-family: 'Fira Code', monospace; 
-    font-size: 13px; overflow-x: auto; white-space: pre; margin: 30px 0; border-left: 4px solid var(--main-blue);
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+    margin: 0;
+    background: #ffffff;
+    color: #222;
 }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-top: 25px; }
-.card { background: #fff; padding: 25px; border-radius: 8px; border: 1px dashed #ccc; transition: 0.3s; }
-.card:hover { border-color: var(--main-blue); background: #fcfcfc; }
-.card h4 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #333; display: flex; align-items: center; gap: 8px; }
-.card .reasoning { font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; font-style: italic; margin-top: 10px; }
+header {
+    background: var(--dark);
+    color: white;
+    padding: 80px 20px;
+    text-align: center;
+}
 
-code { background: #f4f4f4; padding: 2px 5px; border-radius: 4px; font-family: monospace; color: var(--main-blue); }
-ul li { margin-bottom: 10px; }
+header h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 600;
+}
+
+header p {
+    margin-top: 15px;
+    color: #bbb;
+    font-size: 16px;
+}
+
+.container {
+    max-width: 950px;
+    margin: auto;
+    padding: 60px 20px;
+}
+
+h2 {
+    margin-top: 60px;
+    font-size: 20px;
+    color: var(--main-blue);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+h3 {
+    margin-top: 30px;
+    font-size: 16px;
+    color: #333;
+}
+
+code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--main-blue);
+}
+
+pre {
+    background: #1f2937;
+    color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 13px;
+}
+
+ul {
+    margin-top: 10px;
+}
+
+li {
+    margin-bottom: 10px;
+}
+
+.diagram {
+    margin: 50px 0;
+    text-align: center;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 80px;
+    padding-top: 40px;
+    border-top: 1px solid #eee;
+    font-size: 14px;
+    color: #666;
+}
+    svg {
+    max-width: 100%;
+    height: auto;
+}
+
 </style>
 </head>
 <body>
 
 <header>
-    <div style="font-family: monospace; color: var(--main-blue); margin-bottom: 10px;">&lt;developer-manifest&gt;</div>
-    <h1>Integrity by Design</h1>
-    <p>Encoding Regulatory Invariants into Maritime Energy Flows.</p>
+    <h1>Velonaut Core Technical Specification</h1>
+    <p>Deterministic Regulatory Accounting & Forensic Ledger Architecture (v0.5.6)</p>
 </header>
 
 <div class="container">
-<div class="manifesto-box">
 
-<div class="section-title">1. Die Mission</div>
-<p>Die maritime Dekarbonisierung ist kein technisches Einzelproblem, sondern ein <strong>systemisches Koordinationsproblem</strong>. Velonautics existiert, um die Fragmentierung zwischen EU-ETS, FuelEU Maritime und dem freiwilligen Kohlenstoffmarkt aufzulösen.</p>
+<h2>0. System Overview — The Deterministic Pipeline</h2>
 
-<div class="highlight">"Wir bauen Infrastruktur, nicht Narrative. Unsere Aufgabe ist die Kodierung regulatorischer Invarianten."</div>
+<p>
+Velonaut Core operates as a three-step deterministic pipeline. The system does not manage state; it manages proof.
+</p>
 
-<div class="svg-container">
-<div style="font-size: 12px; text-transform: uppercase; color: #999; letter-spacing: 2px; margin-bottom: 20px;">Systemic Logic Flow</div>
-<svg viewBox="0 0 400 550" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    <rect class="interactive-layer" x="210" y="20" width="170" height="80" rx="5" fill="#eef6fc" stroke="#0f64a9" stroke-width="2" 
-        onmousemove="showTooltip(event, '<b>Layer IIIb: Market</b><br>Registry-agnostischer Export von hochwertigen Scope-3 Assets. Additionality wird hier marktfähig.')" 
-        ontouchstart="showTooltip(event, '<b>Layer IIIb: Market</b><br>Registry-agnostischer Export von hochwertigen Scope-3 Assets. Additionality wird hier marktfähig.')"
-        onmouseleave="hideTooltip()" ontouchend="hideTooltip()"/>
-    <text x="295" y="55" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#0f64a9" pointer-events="none">Layer IIIb: Market</text>
+<ul>
+<li><strong>Ingestion & Casting:</strong> Raw physical energy data (MJ, GHG intensity, scope factors) is ingested and immediately cast into Decimal-native representations to eliminate binary floating-point artifacts.</li>
 
-    <rect class="interactive-layer" x="20" y="20" width="170" height="80" rx="5" fill="#f9f9f9" stroke="#333" stroke-width="2"
-        onmousemove="showTooltip(event, '<b>Layer IIIa: Regulatory</b><br>Prüfbereite Salden für Behörden und Verifizierer.')" 
-        ontouchstart="showTooltip(event, '<b>Layer IIIa: Regulatory</b><br>Prüfbereite Salden für Behörden und Verifizierer.')"
-        onmouseleave="hideTooltip()" ontouchend="hideTooltip()"/>
-    <text x="105" y="55" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#333" pointer-events="none">Layer IIIa: Regulatory</text>
+<li><strong>Regulatory Appraisal:</strong> Events are evaluated against frozen regulatory constants (FuelEU targets, ETS phase-in factors). The result forms a deterministic compliance balance.</li>
 
-    <rect class="firewall-glow interactive-layer" x="20" y="150" width="360" height="50" fill="#0f64a9"
-        onmousemove="showTooltip(event, '<b>Layer II: Isolation Firewall</b><br>Die State Machine des Systems. Hier findet die irreversible Zuweisung (Joule-Tagging) statt.')" 
-        ontouchstart="showTooltip(event, '<b>Layer II: Isolation Firewall</b><br>Die State Machine des Systems. Hier findet die irreversible Zuweisung (Joule-Tagging) statt.')"
-        onmouseleave="hideTooltip()" ontouchend="hideTooltip()"/>
-    <text x="200" y="180" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff" pointer-events="none">LAYER II: ISOLATION FIREWALL</text>
+<li><strong>Ledger Commitment:</strong> The physical snapshot and regulatory context are sealed via a dual-hash anchor and an HMAC signature.</li>
+</ul>
 
-    <rect class="interactive-layer" x="50" y="250" width="300" height="80" rx="5" fill="#fff" stroke="#eee" stroke-width="2"
-        onmousemove="showTooltip(event, '<b>Layer I: Compliance Engine</b><br>Berechnung der regulatorischen Invarianten basierend auf ETS und FuelEU.')" 
-        ontouchstart="showTooltip(event, '<b>Layer I: Compliance Engine</b><br>Berechnung der regulatorischen Invarianten basierend auf ETS und FuelEU.')"
-        onmouseleave="hideTooltip()" ontouchend="hideTooltip()"/>
-    <text x="200" y="285" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Layer I: Compliance Engine</text>
+<p>
+The current system state is never assumed authoritative. It is reconstructed from the append-only ledger to ensure forensic auditability.
+</p>
 
-    <circle class="interactive-layer" cx="200" cy="500" r="30" fill="#333"
-        onmousemove="showTooltip(event, '<b>Physical Reality</b><br>Sensordaten, BDNs und Bunker-Events.')" 
-        ontouchstart="showTooltip(event, '<b>Physical Reality</b><br>Sensordaten, BDNs und Bunker-Events.')"
-        onmouseleave="hideTooltip()" ontouchend="hideTooltip()"/>
-    <text x="200" y="505" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#fff" font-weight="bold" pointer-events="none">REALITY</text>
 
-    <line class="flow-path" x1="200" y1="470" x2="200" y2="435" stroke="#ccc" stroke-width="3"/>
-    <line class="flow-path" x1="200" y1="360" x2="200" y2="345" stroke="#ccc" stroke-width="3"/>
-    <line class="flow-path" x1="200" y1="250" x2="200" y2="215" stroke="#ccc" stroke-width="3"/>
+<h2>1. Architectural Principle — Deterministic Accounting</h2>
+
+<p>
+Velonaut Core follows an <strong>Append-Only Ledger Projection</strong> model.
+</p>
+
+<ul>
+<li><strong>Zero-Trust Projection:</strong> The system state is a projection of verified historical events, not a static database record.</li>
+
+<li><strong>Forensic Replay:</strong> Upon every boot cycle, the engine executes a full replay of the ledger from the first committed entry to the present.</li>
+
+<li><strong>Logic Versioning:</strong> Calculation rules (FuelEU targets, ETS factors) are frozen within each ledger entry. Replay is executed using the rule-version bound to that entry.</li>
+</ul>
+
+
+<h2>2. Mathematical Integrity — Arithmetic Sovereignty</h2>
+
+<p>
+To eliminate IEEE-754 floating-point inaccuracies, Velonaut Core uses a native Decimal pipeline.
+</p>
+
+<ul>
+<li><strong>Decimal Native:</strong> Python <code>decimal</code> module with a context precision of 28 decimal places.</li>
+
+<li><strong>Zero-Float Policy:</strong> Immediate string-casting of physical inputs upon ingestion.</li>
+
+<li><strong>Quantization:</strong> <code>ROUND_HALF_UP</code> for terminal calculations.</li>
+
+<li><strong>String-Sovereignty:</strong> All numeric values in transit (JSON/API) are serialized as Strings to ensure deterministic hashing across runtimes (Python, Go, Rust, JS).</li>
+</ul>
+
+
+<h2>3. Cryptographic Security Model</h2>
+
+<h3>A. Regulatory Anchor (reg_hash)</h3>
+
+<pre>reg_hash = SHA256(CanonicalJSON(Events, Rules, EngineVersion))</pre>
+
+<p>
+Proves that specific physical evidence was appraised under a specific rule set.
+</p>
+
+<h3>B. Chained Asset Anchor (asset_hash)</h3>
+
+<pre>asset_hash = SHA256(prev_hash + reg_hash + payload)</pre>
+
+<p>
+Creates a cryptographically linked history. Any past alteration invalidates all subsequent entries.
+</p>
+
+<h3>C. Cryptographic Sealing (HMAC-SHA256)</h3>
+
+<p>
+Each ledger entry is sealed using HMAC-SHA256 with a server-side secret.
+</p>
+
+<ul>
+<li><strong>Provisioning:</strong> SECRET_KEY is supplied via secure environment configuration (environment variables or secret managers).</li>
+
+<li><strong>Verification:</strong> Uses <code>hmac.compare_digest()</code> to mitigate timing attacks.</li>
+</ul>
+
+
+<h2>4. Forensic Validation Protocol</h2>
+
+<p>The engine performs five mandatory checks:</p>
+
+<ul>
+<li><strong>Signature Audit:</strong> Validates the HMAC seal.</li>
+<li><strong>Sequence Integrity:</strong> Ensures <code>seq</code> is strictly monotonic (n, n+1).</li>
+<li><strong>Chain Integrity:</strong> Verifies <code>prev_hashₙ ≡ asset_hashₙ₋₁</code>.</li>
+<li><strong>Timestamp Monotony:</strong> Enforces strictly monotonic UTC timestamps within the ledger sequence.</li>
+<li><strong>Deterministic Replay:</strong> Re-calculates volume from raw physical events and enforces exact equality under the configured Decimal context.</li>
+</ul>
+
+
+<h2>5. Trust Boundary Model</h2>
+
+<p>
+Velonaut explicitly separates physical truth, regulatory logic, and cryptographic sealing.
+</p>
+
+<div class="diagram">
+<svg width="600" height="340" viewBox="0 0 600 340" xmlns="http://www.w3.org/2000/svg">
+
+<!-- Physical Layer -->
+<rect x="150" y="20" width="300" height="70" fill="#f1f5f9" stroke="#0f64a9" stroke-width="2"/>
+<text x="300" y="55" text-anchor="middle" font-size="14" font-weight="bold">Physical Energy Events</text>
+<text x="300" y="75" text-anchor="middle" font-size="12">(MJ, GHG, Scope)</text>
+
+<!-- Regulatory Layer -->
+<rect x="150" y="130" width="300" height="70" fill="#ffffff" stroke="#0f64a9" stroke-width="2"/>
+<text x="300" y="165" text-anchor="middle" font-size="14" font-weight="bold">Regulatory Rule Snapshot</text>
+<text x="300" y="185" text-anchor="middle" font-size="12">(FuelEU Targets, ETS Factors)</text>
+
+<!-- Ledger Layer -->
+<rect x="150" y="240" width="300" height="70" fill="#f1f5f9" stroke="#0f64a9" stroke-width="2"/>
+<text x="300" y="275" text-anchor="middle" font-size="14" font-weight="bold">Append-Only Ledger</text>
+<text x="300" y="295" text-anchor="middle" font-size="12">(reg_hash + asset_hash + HMAC)</text>
+
+<!-- Arrows -->
+<line x1="300" y1="90" x2="300" y2="130" stroke="#0f64a9" stroke-width="2"/>
+<line x1="300" y1="200" x2="300" y2="240" stroke="#0f64a9" stroke-width="2"/>
+
 </svg>
-<div id="svg-tooltip" class="tooltip"></div>
-<p style="font-size: 12px; color: #999;">Tipp: Berühre oder bewege die Maus über die Layer für Details.</p>
 </div>
 
-<div class="section-title">4. Systemarchitektur: Velonaut Core</div>
-<pre class="api-block">
-// API Design Principle: Separation of Semantics and Settlement
+<p>
+Trust Boundary Summary:
+</p>
 
-if energy_event.allocated_to == "Compliance":
-    # Joule-Tagging: Irreversible state transition
-    lock_state(event_id, irreversible=True)
-    prevent_market_attribution(event_id)
+<ul>
+<li>Physical data is immutable once committed.</li>
+<li>Regulatory constants are version-bound per entry.</li>
+<li>Ledger integrity is enforced cryptographically.</li>
+<li>The UI layer is explicitly outside the trust boundary.</li>
+</ul>
 
-# Truth before Trade.
-</pre>
 
-<div class="section-title">5. Velonaut Core – Non-Goals</div>
-<div class="grid">
-<div class="card"><h4>❌ Kein Trading-System</h4><p>Keine Preisbildung, keine Orderbücher. Wir erzeugen Fakten, keine Marktpreise.</p></div>
-<div class="card"><h4>❌ Kein Wallet / Custody</h4><p>Keine Private-Key-Verwaltung. Das System besitzt keine Assets, es definiert sie lediglich.</p></div>
-<div class="card"><h4>❌ Keine Chain-Abhängigkeit</h4><p>Registry-agnostisch. Tokenisierung ist optional.</p></div>
-<div class="card"><h4>❌ Kein Dashboard-First</h4><p>Keine kosmetische Excel-Replikation. Reporting beschreibt Vergangenheit; der Core sichert die Gegenwart.</p></div>
+<h2>6. Non-Goals</h2>
+
+<ul>
+<li>No decentralized consensus or mining.</li>
+<li>No financial token minting.</li>
+<li>No custody of funds or wallet management.</li>
+<li>No carbon market speculation.</li>
+</ul>
+
+
+<h2>7. Technical Roadmap</h2>
+
+<ul>
+<li><strong>v0.6:</strong> Append-only SQLite schema with BEFORE UPDATE/DELETE triggers (ABORT).</li>
+<li><strong>v0.7:</strong> Period Closure Markers (Yearly Freeze).</li>
+<li><strong>v0.8:</strong> Optional public timestamp anchoring (e.g., OpenTimestamps).</li>
+</ul>
+
+
+<h2>8. Canonicalization Standards</h2>
+
+<ul>
+<li>Alphabetical keys: <code>sort_keys=True</code></li>
+<li>Compact JSON: <code>separators=(',',':')</code></li>
+<li>UTF-8 encoding</li>
+<li>Numeric values serialized as Strings</li>
+</ul>
+
+<div class="footer">
+Velonaut Core — Deterministic Infrastructure for Regulatory Accounting<br>
+Audit-Oriented Design | Maritime Integrity Architecture
 </div>
 
-<div style="margin-top: 35px; padding: 25px; background: #f8fafc; border-left: 5px solid var(--main-blue); font-size: 14px; color: #333; line-height: 1.6;">
-<strong>Leitsatz:</strong> Velonautics baut keine Plattform für Meinungen, Märkte oder Manöver. Wir bauen die Infrastruktur für unbestechliche Fakten.
 </div>
-
-<div style="text-align: center; margin-top: 60px; border-top: 1px solid #eee; padding-top: 30px;">
-<p style="font-weight: bold; color: #333; margin-bottom: 10px;">Interesse am technischen Audit?</p>
-<a href="mailto:hello@velonautics.de?subject=Dev Inquiry" style="color: #0f64a9; text-decoration: none; font-weight: bold;">hello@velonautics.de</a>
-<p style="margin-top: 25px;"><a href="index.html" style="color: #666; font-size: 14px; text-decoration: none;">&larr; Zurück zum Konzept</a></p>
-</div>
-
-</div>
-</div>
-
-<script>
-const tooltip = document.getElementById("svg-tooltip");
-function showTooltip(evt, text) {
-    const rect = tooltip.parentNode.getBoundingClientRect();
-    let x = evt.clientX - rect.left + 10;
-    let y = evt.clientY - rect.top + 10;
-    tooltip.innerHTML = text;
-    tooltip.style.opacity = "1";
-    tooltip.style.left = x + 'px';
-    tooltip.style.top = y + 'px';
-}
-function hideTooltip() { tooltip.style.opacity = "0"; }
-</script>
-
 </body>
 </html>
