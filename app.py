@@ -16,8 +16,6 @@ from core.additionality import AdditionalityEngine
 getcontext().prec = 28
 
 # --- CLAUDE-SECURITY-KEY (v0.5.6) ---
-# Holt den Schlüssel aus den Streamlit Secrets oder der Umgebung.
-# Fallback nur für lokale Entwicklung.
 SECRET_KEY = st.secrets.get("VELONAUT_LEDGER_KEY", os.environ.get("VELONAUT_LEDGER_KEY", "dev-only-insecure-key"))
 
 # --- KONFIGURATION & STYLING ---
@@ -94,7 +92,7 @@ def validate_entire_ledger(ledger):
 
         p = entry['payload']
         
-        # 2. Timestamp Monotonie (Try-Catch für Sicherheit)
+        # 2. Timestamp Monotonie
         try:
             current_ts = datetime.fromisoformat(p['ts'])
             if last_ts and current_ts < last_ts:
@@ -109,7 +107,7 @@ def validate_entire_ledger(ledger):
         if entry['prev_hash'] != last_hash:
             errors.append(f"Chain Break @ SEQ {entry['seq']}")
 
-        # 4. Mathematical Replay (überspringen für Genesis)
+        # 4. Mathematical Replay
         if entry['reg_hash'] != "GENESIS":
             try:
                 calculated_vol = recompute_surplus_deterministically(p['raw_events'], p['rules'])
@@ -127,7 +125,6 @@ def validate_entire_ledger(ledger):
 # --- DATA OPS ---
 
 def initialize_genesis_if_empty(ledger):
-    """ Erstellt den Genesis Block (SEQ 0), falls das Ledger leer ist. """
     if not ledger or len(ledger) == 0:
         genesis_payload = {
             "vol": "0",
@@ -179,16 +176,19 @@ def load_ledger():
             return initialize_genesis_if_empty(l)
     except: return initialize_genesis_if_empty([])
 
-# --- APP EXECUTION ---
+# --- APP EXECUTION START ---
 
+# 1. Daten laden
 fleet = load_data()
 ledger = load_ledger()
 
-# --- SIDEBAR: INSTITUTIONAL COCKPIT ---
+# 2. VALIDIERUNG SOFORT DURCHFÜHREN (Damit is_valid für die Sidebar existiert)
+is_valid, chain_errors = validate_entire_ledger(ledger)
+
+# 3. SIDEBAR DEFINITION
 st.sidebar.header("🕹️ Institutional Control")
 st.sidebar.markdown("---")
 
-# ABSCHNITT 1: REGULATORIK
 st.sidebar.subheader("⚖️ Regulatory Framework")
 st.sidebar.info(
     "Grenzwerte der FuelEU Maritime gelten immer für 5-Jahres-Perioden. "
@@ -198,48 +198,44 @@ st.sidebar.info(
 selected_year = st.sidebar.selectbox(
     "Compliance Period", 
     [2025, 2030, 2035, 2040],
-    help="Wähle das Startjahr der regulatorischen Phase. Die EU verschärft die Ziele alle 5 Jahre."
+    help="Wähle das Startjahr der regulatorischen Phase."
 )
 
 strategy = st.sidebar.selectbox(
     "Risk Strategy", 
     list(StrategyMode),
-    help="Bestimmt, wie viel Sicherheits-Puffer (Buffer) einbehalten wird, bevor Assets tokenisiert werden."
+    help="Bestimmt den Sicherheits-Puffer."
 )
 
 st.sidebar.markdown("---")
 
-# ABSCHNITT 2: MARKT-DATEN
 st.sidebar.subheader("📈 Market Environment")
-st.sidebar.caption("Simuliert den aktuellen Marktwert deiner überschüssigen Emissionsrechte.")
-
 eua_price = st.sidebar.slider(
     "EUA ETS Price (€/tCO2e)", 
     min_value=50.0, 
     max_value=250.0, 
     value=85.5, 
     step=0.1,
-    format="%.1f",
-    help="Der aktuelle Börsenpreis für EU-Emissionsberechtigungen."
+    format="%.1f"
 )
 
 st.sidebar.markdown("---")
 
-# ABSCHNITT 3: SYSTEM-STATUS
 st.sidebar.subheader("🔒 Integrity Status")
-if is_valid: # Wir nutzen die Variable aus dem Validierungs-Check oben
+if is_valid: 
     st.sidebar.success("Ledger: Verified")
     st.sidebar.caption(f"Engine: v0.5.6-Sovereign")
 else:
     st.sidebar.error("Ledger: BREACH DETECTED")
 
-# Initialisierung der Engine mit dem gewählten Jahr
+# Initialisierung der Engine
 fueleu_ui = FuelEUEngine(year=selected_year)
+
+# --- MAIN UI ---
 
 st.title("🚢 Velonaut | v0.5.6 Institutional Ledger")
 st.caption("Arithmetic Sovereignty | Cryptographic Signatures | Triple-Layer Architecture")
 
-# --- README SEKTION ---
 with st.expander("📖 System Documentation & Logic (Quick Guide)"):
     try:
         with open("README.md", "r", encoding="utf-8") as f:
@@ -249,11 +245,6 @@ with st.expander("📖 System Documentation & Logic (Quick Guide)"):
 
 # --- LAYER I: PHYSICAL DATA PROOF ---
 st.header("📡 Layer I: Physical Data Proof")
-st.info("Integritäts-Check der physikalischen Rohdaten & Signatur-Verifizierung")
-
-with st.spinner("Forensic Audit in progress..."):
-    is_valid, chain_errors = validate_entire_ledger(ledger)
-
 if not is_valid:
     st.error(f"🚨 LAYER I BREACH: {chain_errors[0]}")
 else:
@@ -283,18 +274,10 @@ balance = fueleu_ui.get_compliance_balance(fleet)
 
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
-    
-    # Wir erweitern auf 3 Spalten, um Platz für die monetäre Bewertung zu schaffen
     col_a, col_b, col_c = st.columns(3)
-    
-    # Spalte 1: Der regulatorische Status (Unveränderter Fachbegriff)
     col_a.metric("Fleet Compliance Balance", f"{balance:,.2f} gCO2e/MJ")
-    
-    # Spalte 2: Das berechnete Asset (Unveränderter Fachbegriff)
     col_b.metric("Tradable Net Surplus", f"{report.net_surplus:,.2f} tCO2e")
     
-    # Spalte 3: Die monetäre Bewertung basierend auf dem hochpräzisen ETS-Preis
-    # Nutzung von Decimal für arithmetische Souveränität
     from decimal import Decimal
     market_value = Decimal(str(report.net_surplus)) * Decimal(str(eua_price))
     col_c.metric("Estimated Market Value (EUA)", f"€ {market_value:,.2f}")
