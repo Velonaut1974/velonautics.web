@@ -186,7 +186,16 @@ ledger = load_ledger()
 
 st.sidebar.header("🕹️ Institutional Control")
 selected_year = st.sidebar.selectbox("Reporting Year", [2025, 2030, 2035])
-eua_price = st.sidebar.slider("ETS Price (€)", 50, 150, 85)
+# Vorher: eua_price = st.sidebar.slider("ETS Price (€)", 50, 150, 85)
+
+eua_price = st.sidebar.slider(
+    "ETS Price (€/tCO2e)", 
+    min_value=50.0, 
+    max_value=150.0, 
+    value=85.5, 
+    step=0.1,
+    format="%.1f"
+)
 strategy = st.sidebar.selectbox("Risk Strategy", list(StrategyMode))
 
 fueleu_ui = FuelEUEngine(year=selected_year)
