@@ -184,20 +184,56 @@ def load_ledger():
 fleet = load_data()
 ledger = load_ledger()
 
+# --- SIDEBAR: INSTITUTIONAL COCKPIT ---
 st.sidebar.header("🕹️ Institutional Control")
-selected_year = st.sidebar.selectbox("Reporting Year", [2025, 2030, 2035])
-# Vorher: eua_price = st.sidebar.slider("ETS Price (€)", 50, 150, 85)
+st.sidebar.markdown("---")
+
+# ABSCHNITT 1: REGULATORIK
+st.sidebar.subheader("⚖️ Regulatory Framework")
+st.sidebar.info(
+    "Grenzwerte der FuelEU Maritime gelten immer für 5-Jahres-Perioden. "
+    "Die nächste Verschärfung erfolgt 2030."
+)
+
+selected_year = st.sidebar.selectbox(
+    "Compliance Period", 
+    [2025, 2030, 2035, 2040],
+    help="Wähle das Startjahr der regulatorischen Phase. Die EU verschärft die Ziele alle 5 Jahre."
+)
+
+strategy = st.sidebar.selectbox(
+    "Risk Strategy", 
+    list(StrategyMode),
+    help="Bestimmt, wie viel Sicherheits-Puffer (Buffer) einbehalten wird, bevor Assets tokenisiert werden."
+)
+
+st.sidebar.markdown("---")
+
+# ABSCHNITT 2: MARKT-DATEN
+st.sidebar.subheader("📈 Market Environment")
+st.sidebar.caption("Simuliert den aktuellen Marktwert deiner überschüssigen Emissionsrechte.")
 
 eua_price = st.sidebar.slider(
-    "ETS Price (€/tCO2e)", 
+    "EUA ETS Price (€/tCO2e)", 
     min_value=50.0, 
-    max_value=150.0, 
+    max_value=250.0, 
     value=85.5, 
     step=0.1,
-    format="%.1f"
+    format="%.1f",
+    help="Der aktuelle Börsenpreis für EU-Emissionsberechtigungen."
 )
-strategy = st.sidebar.selectbox("Risk Strategy", list(StrategyMode))
 
+st.sidebar.markdown("---")
+
+# ABSCHNITT 3: SYSTEM-STATUS
+st.sidebar.subheader("🔒 Integrity Status")
+if is_valid: # Wir nutzen die Variable aus dem Validierungs-Check oben
+    st.sidebar.success("Ledger: Verified")
+    st.sidebar.caption(f"Engine: v0.5.6-Sovereign")
+else:
+    st.sidebar.error("Ledger: BREACH DETECTED")
+
+# Initialisierung der Engine mit dem gewählten Jahr
 fueleu_ui = FuelEUEngine(year=selected_year)
 
 st.title("🚢 Velonaut | v0.5.6 Institutional Ledger")
