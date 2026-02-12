@@ -247,9 +247,21 @@ balance = fueleu_ui.get_compliance_balance(fleet)
 
 if balance > 0:
     report = AdditionalityEngine.calculate_surplus(balance, strategy, selected_year)
-    col_a, col_b = st.columns(2)
+    
+    # Wir erweitern auf 3 Spalten, um Platz für die monetäre Bewertung zu schaffen
+    col_a, col_b, col_c = st.columns(3)
+    
+    # Spalte 1: Der regulatorische Status (Unveränderter Fachbegriff)
     col_a.metric("Fleet Compliance Balance", f"{balance:,.2f} gCO2e/MJ")
+    
+    # Spalte 2: Das berechnete Asset (Unveränderter Fachbegriff)
     col_b.metric("Tradable Net Surplus", f"{report.net_surplus:,.2f} tCO2e")
+    
+    # Spalte 3: Die monetäre Bewertung basierend auf dem hochpräzisen ETS-Preis
+    # Nutzung von Decimal für arithmetische Souveränität
+    from decimal import Decimal
+    market_value = Decimal(str(report.net_surplus)) * Decimal(str(eua_price))
+    col_c.metric("Estimated Market Value (EUA)", f"€ {market_value:,.2f}")
     
     if st.button("🚀 Issue Chained Asset (Tokenize)"):
         valid_ledger = [e for e in ledger if isinstance(e, dict) and 'asset_hash' in e]
