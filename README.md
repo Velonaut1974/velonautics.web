@@ -1,3 +1,142 @@
+Operator & First-Use Guide
+
+(Institutional Operating Perspective)
+
+VELONAUT is not a dashboard.
+It is a forensic environment in which human decisions become permanent, attributable records.
+
+Before using the system, every operator must understand:
+
+actions performed here may create irreversible regulatory evidence.
+
+1. System Purpose in Practice
+
+The application converts operational maritime data into:
+verifiable compliance states
+attributable governance decisions
+cryptographically sealed institutional history
+The system does not replace human responsibility.
+It documents it.
+
+2. Mental Model for Operators
+
+Think of the platform as three connected zones:
+Observation – what the system detects
+Evaluation – what a human reviews
+Attestation – what becomes institutional truth
+Only the third step enters the ledger.
+
+3. What You See When Opening the Application
+
+At the top of the interface you will find:
+the active institution
+the currently loaded signing identity
+the chain integrity status
+If integrity is not verified, stop working immediately.
+
+4. Identity & Role Context
+
+The system always operates under an explicit user and role declaration.
+Typical examples:
+Compliance Officer
+Technical Manager
+Auditor
+This context is written into future ledger entries.
+Changing the dropdown changes accountability for subsequent actions.
+
+5. Compliance Isolation Layer (RAW → LOCKED)
+
+Operational data such as fuel events initially appear as RAW.
+When an operator selects:
+SECURE FOR COMPLIANCE
+the following happens:
+the event becomes immutable within normal operation
+it is considered validated against source documentation
+it becomes eligible for regulatory calculations
+This step is preparatory.
+It does not yet create a ledger block.
+
+6. Intelligence Sentinel (Evidence Inbox)
+
+Here the system presents external observations.
+Examples:
+price movements
+legal updates
+delegated acts
+market anomalies
+These are not facts yet.
+They are candidates for institutional recognition.
+
+7. Authentication & Intent
+
+Before an observation can enter the ledger, the operator must:
+hold the appropriate role
+authenticate (currently PIN based, later cryptographic)
+consciously execute the binding signature
+Before execution, the system displays:
+who signs
+in which role
+at what time
+This is deliberate.
+
+8. Executing the Binding Signature
+
+When pressing:
+Execute Binding Signature
+
+the system will:
+create a structured governance record
+hash the payload
+sign via Ed25519
+chain it to previous history
+make it exportable for third-party verification
+After this moment, the action is institutional memory.
+It cannot be edited.
+Only superseded by new entries.
+
+9. Dismissing an Observation
+
+If an operator dismisses an alert, the system records that the information was considered non-material from the perspective of the acting role.
+Dismissal is also a decision.
+
+10. Asset Generation & Value Layer
+
+If a compliance surplus exists, the operator may generate a regulatory asset.
+This action will:
+freeze the market conditions
+bind calculation logic
+embed raw event references
+produce a signed block
+This is typically the financial exposure moment.
+
+11. Period Sealing
+
+When a reporting year is sealed:
+no additional entries for that period can be added through normal workflow.
+This is equivalent to closing institutional books.
+
+12. What Can Be Changed Later
+
+You may:
+add new information
+issue corrections
+append clarifications
+You may never rewrite history.
+
+13. Audit Perspective
+
+External reviewers do not need your application.
+They verify by:
+hash
+signature
+chain continuity
+If verification requires internal explanations, the design has failed.
+
+14. Operator Responsibility
+
+VELONAUT provides structure, traceability, and cryptographic certainty.
+The judgement remains human.
+
 VELONAUT | Institutional Forensic Ledger
 
 Standard Operating Principles & Technical Overview
@@ -153,3 +292,4 @@ The system is engineered with the expectation that future reviewers may not have
 Velonaut
 Deterministic Infrastructure for Institutional Evidence
 Built for scrutiny
+
