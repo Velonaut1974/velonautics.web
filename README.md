@@ -1,234 +1,155 @@
-VELONAUT
-Institutional Forensic Ledger
-Auditor & Operator Documentation
-1. Institutional Positioning
+VELONAUT | Institutional Forensic Ledger
 
-VELONAUT provides a controlled environment for transforming operational maritime data into cryptographically verifiable compliance records.
+Standard Operating Principles & Technical Overview
 
-The system is designed to support review, reconstruction and third-party assurance processes under regulatory regimes such as EU ETS and FuelEU Maritime.
+Executive Summary
 
-VELONAUT does not replace institutional judgement.
-It provides deterministic evidence infrastructure.
+Velonaut is a deterministic infrastructure for maritime regulatory accounting.
+It converts operational and market-relevant inputs into cryptographically verifiable institutional records. The system is designed for environments where figures must remain explainable long after their creation, independent of user interface, vendor or runtime.
 
-2. What the System Guarantees Today
+Velonaut does not rely on assumed system state. Authority emerges exclusively from replayable history, bound identities and explicit human responsibility.
 
-At the current release stage, the platform provides:
+System Model — From Observation to Proof
 
-✔ sequential block integrity
-✔ cryptographic authorship
-✔ deterministic recalculation
-✔ historic reconstruction
-✔ independent verification outside the software
+Velonaut separates three domains: perception, evaluation and commitment.
 
-The system intentionally requires human initiation for legally relevant actions.
+External developments such as market movements, regulatory publications or technical inputs may enter the platform as observations. Observations alone do not alter institutional truth. They become authoritative only after review and formal human attestation. The ledger therefore records not merely data, but responsibility.
 
-3. Architectural Overview
-Ledger Model
+The essential question Velonaut continuously enables is:
 
-VELONAUT operates a private, SQLite-backed append-only ledger.
+Given these inputs, under those rules, who confirmed this outcome at that moment?
 
-Each block contains:
+What Exists Today
 
-sequence number
+The platform currently operates with the following institutional capabilities:
 
-institution identifier
+an append-only, hash-chained ledger
 
-block type
+Ed25519-based cryptographic authorship
 
-reporting year
+Genesis-bound institutional identity
 
-previous block hash
+deterministic canonical serialization
 
-regulatory payload hash (for events)
+fixed-precision arithmetic
 
-canonical payload
+replayable regulatory evaluation
 
-block hash
+exportable blocks for third-party validation
 
-Ed25519 signature
+period sealing via aggregated master hashes
 
-UTC timestamp
+durability settings prioritizing forensic safety
 
-Hashes are derived from canonical JSON serialization to guarantee reproducibility.
+cryptographic binding of external market parameters
 
-Any modification would invalidate:
+structured human attestation before regulatory commitment
 
-the block hash
+State is never implicitly trusted. Every present condition is derived from historical evidence.
 
-the signature
+Architectural Principle — Deterministic Reconstruction
 
-the forward chain
+Velonaut follows an append-only projection model. The current view of the system is a reproducible consequence of validated prior events. Upon initialization, integrity verification replays the chain and confirms cryptographic continuity.
 
-Signature Framework
+Regulatory logic is version-bound per entry. A calculation is therefore inseparable from the rule environment under which it was produced.
 
-All entries are signed using Ed25519.
+If a result cannot be replayed, it has no institutional standing.
 
-Verification during integrity checks automatically:
+Institutional Decision Layer
 
-re-computes each block hash
+Velonaut distinguishes observation from attestation.
+Automated mechanisms may detect, classify and pre-evaluate developments in the external environment, but they do not create legal or regulatory effects.
 
-verifies signatures
+A ledger commitment requires deliberate human confirmation.
 
-validates hash continuity
+During attestation the system binds:
 
-applies key succession rules after rotation
+the originating observation
 
-Auditors can reproduce this without access to proprietary components.
+the institutional interpretation
 
-Genesis Binding
+the declared materiality
 
-At initialization, the first block embeds the institutional public key.
+the decision outcome
 
-If the locally active key deviates from the Genesis declaration, system operation halts.
+the acting role
 
-This prevents silent takeover of an existing ledger.
+the responsible individual
 
-Period Closure
+the UTC timestamp
 
-A reporting year can be sealed.
+the authentication method
 
-During sealing:
+These attributes become part of the immutable record and remain verifiable independent of the application.
 
-chain integrity is verified
+AI recommends. Humans attest.
 
-all hashes of the period are aggregated
+Trust Boundary
 
-a deterministic master hash is created
+The trust boundary explicitly excludes interface components, convenience abstractions and transient caches. Reliability is produced through:
 
-the closure block is signed and appended
+canonical data formation
 
-the year becomes append-locked
+deterministic mathematics
 
-Further entries for the period are rejected.
+chained hashing
 
-Arithmetic Discipline
+authenticated signatures
 
-Financial and volumetric computations are executed using fixed precision decimal arithmetic (28 digits).
+replay validation
 
-This ensures reproducible institutional results across environments.
+Anything outside this boundary may assist operations but carries no evidentiary authority.
 
-4. Operational Workflow
-Phase I – Raw Data Presence
+Minimal Operational Understanding
 
-Operational energy events enter the system in RAW state.
+Velonaut can be understood as infrastructure that ensures institutional memory remains defensible. It allows organizations to demonstrate not only what they concluded, but how and under whose mandate those conclusions were reached.
 
-At this stage they remain comparable to external documentation.
+Responsibility is therefore not implied; it is recorded.
 
-Phase II – Compliance Securing
+Developer Responsibilities
 
-When an operator confirms an event, it is moved into a protected state.
+Extensions and integrations must preserve reproducibility and attribution. Implementations should maintain:
 
-The original information remains visible.
-Any later correction would require a new ledger entry rather than alteration.
+consistent canonical encoding
 
-Phase III – Regulatory Asset Formation
+verifiable signature lineage
 
-If a compliance surplus exists:
+strict sequencing
 
-parameters (year, strategy) are chosen
+monotonic causality
 
-a market price input is declared
+visible operator intent
 
-a market snapshot is generated
+Automation is acceptable. Hidden decision making is not.
 
-event references are frozen
+Independent Verification
 
-a signed ledger block is created
+A core design objective is external verifiability without reliance on Velonaut itself. A third party must be able to validate signatures, hashes, rule bindings and chronological order using exported data alone.
 
-The snapshot includes:
+If verification depends on internal services, the design is insufficient.
 
-price
+Direction of Travel
 
-source declaration
+Velonaut is evolving toward a neutral evidence substrate usable across ship operators, suppliers, auditors and authorities. Upcoming capabilities therefore emphasize:
 
-confidence classification
+formally distributed regulatory parameters
 
-timestamp
+attestable ingestion of external market data
 
-snapshot hash
+multi-party confirmation layers
 
-Snapshots are additionally written to a separate historic table for traceability.
+interoperable verification environments
 
-5. Market Data Interpretation
+long-term continuity of responsibility across organizational change
 
-Market Snapshot v2 provides contextual valuation.
+Non-Goals
 
-It is not an execution venue and does not represent guaranteed liquidity.
+Velonaut does not implement public consensus mechanisms, tokenization, speculation frameworks or custodial finance. Its purpose is institutional clarity, not financial intermediation.
 
-Responsibility for price correctness remains with the operator.
+Final Remark
 
-The ledger guarantees only that the declared input is preserved.
+The system is engineered with the expectation that future reviewers may not have been present at the time of action. Design decisions therefore favor transparency, reconstruction capability and durable accountability over operational convenience.
 
-6. Governance Mechanisms
-Key Rotation
-
-A new public key can be introduced.
-
-The currently trusted key must sign the transition.
-
-During verification, trust automatically migrates along the chain.
-
-Database Reliability
-
-SQLite operates in:
-
-WAL mode
-
-FULL synchronous setting
-
-This prioritizes durability over speed.
-
-Failure Behaviour
-
-If inconsistencies are detected, the system switches from operational mode to protective halt.
-
-7. Independent Audit Capability
-
-Each block can be exported including:
-
-payload
-
-hash
-
-signature
-
-chain reference
-
-A third party can verify authenticity using standard Ed25519 libraries.
-
-No internal APIs are required.
-
-8. Current Maturity Assessment
-
-The system is suitable for:
-
-✔ supervised institutional environments
-✔ internal control frameworks
-✔ preparation for external audits
-✔ pilot operations
-
-The system is not yet positioned for:
-
-✖ autonomous market interaction
-✖ unsupervised regulatory submission
-
-9. Roadmap
-Automated Provenance Layer
-
-Planned integration of signed external price feeds.
-
-Regulatory Rule Versioning
-
-Machine-readable updates of tightening factors.
-
-Multi-Party Attestation
-
-Optional co-signatures by verifiers or authorities.
-
-10. Closing Statement
-
-VELONAUT focuses on making statements provable, not impressive.
-
-The system prefers explicit operator responsibility over hidden automation.
-
-For institutional environments, this is a feature.
+Velonaut
+Deterministic Infrastructure for Institutional Evidence
+Built for scrutiny
