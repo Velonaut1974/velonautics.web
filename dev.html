@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Velonaut | Core Technical Specification</title>
+<title>Velonaut | For Developers</title>
 
 <style>
 :root {
@@ -14,7 +14,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.65;
+    line-height: 1.7;
     margin: 0;
     background: #ffffff;
     color: #222;
@@ -29,7 +29,7 @@ header {
 
 header h1 {
     margin: 0;
-    font-size: 36px;
+    font-size: 34px;
     font-weight: 600;
 }
 
@@ -40,7 +40,7 @@ header p {
 }
 
 .container {
-    max-width: 950px;
+    max-width: 900px;
     margin: auto;
     padding: 60px 20px;
 }
@@ -53,40 +53,12 @@ h2 {
     letter-spacing: 1px;
 }
 
-h3 {
-    margin-top: 30px;
-    font-size: 16px;
-    color: #333;
-}
-
-code {
-    background: #f4f4f4;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: monospace;
-    color: var(--main-blue);
-}
-
-pre {
-    background: #1f2937;
-    color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    overflow-x: auto;
-    font-size: 13px;
-}
-
 ul {
-    margin-top: 10px;
+    margin-top: 15px;
 }
 
 li {
     margin-bottom: 10px;
-}
-
-.diagram {
-    margin: 50px 0;
-    text-align: center;
 }
 
 .footer {
@@ -97,191 +69,196 @@ li {
     font-size: 14px;
     color: #666;
 }
-    svg {
-    max-width: 100%;
-    height: auto;
-}
-
 </style>
 </head>
 <body>
 
 <header>
-    <h1>Velonaut Core Technical Specification</h1>
-    <p>Deterministic Regulatory Accounting & Forensic Ledger Architecture (v0.5.6)</p>
+    <h1>For Developers</h1>
+    <p>Infrastructure, not a prototype</p>
 </header>
 
 <div class="container">
 
-<h2>0. System Overview — The Deterministic Pipeline</h2>
-
 <p>
-Velonaut Core operates as a three-step deterministic pipeline. The system does not manage state; it manages proof.
+Velonaut is built for environments where numbers must survive inspection.
 </p>
 
-<ul>
-<li><strong>Ingestion & Casting:</strong> Raw physical energy data (MJ, GHG intensity, scope factors) is ingested and immediately cast into Decimal-native representations to eliminate binary floating-point artifacts.</li>
-
-<li><strong>Regulatory Appraisal:</strong> Events are evaluated against frozen regulatory constants (FuelEU targets, ETS phase-in factors). The result forms a deterministic compliance balance.</li>
-
-<li><strong>Ledger Commitment:</strong> The physical snapshot and regulatory context are sealed via a dual-hash anchor and an HMAC signature.</li>
-</ul>
+<p>
+The system combines deterministic accounting, cryptographic authorship and institutional governance mechanics into a single operational framework.
+It is not a simulation of infrastructure – it is infrastructure already running in contained environments.
+</p>
 
 <p>
-The current system state is never assumed authoritative. It is reconstructed from the append-only ledger to ensure forensic auditability.
+Developers interacting with Velonaut should think less about features and more about <strong>verifiability, replayability and responsibility</strong>.
 </p>
 
 
-<h2>1. Architectural Principle — Deterministic Accounting</h2>
+<h2>What exists today</h2>
+
+<p>The current platform already implements:</p>
+
+<ul>
+<li>an append-only, hash-chained ledger</li>
+<li>Ed25519 signatures with verifiable key succession</li>
+<li>Genesis binding between institution identity and runtime</li>
+<li>deterministic canonicalization</li>
+<li>fixed-precision arithmetic</li>
+<li>period sealing via aggregated master hashes</li>
+<li>exportable blocks for independent validation</li>
+<li>durability settings prioritizing forensic safety over speed</li>
+</ul>
 
 <p>
-Velonaut Core follows an <strong>Append-Only Ledger Projection</strong> model.
+State is never trusted implicitly.
+It is derived from history.
+</p>
+
+
+<h2>The working philosophy</h2>
+
+<p>
+Velonaut assumes three things:
 </p>
 
 <ul>
-<li><strong>Zero-Trust Projection:</strong> The system state is a projection of verified historical events, not a static database record.</li>
-
-<li><strong>Forensic Replay:</strong> Upon every boot cycle, the engine executes a full replay of the ledger from the first committed entry to the present.</li>
-
-<li><strong>Logic Versioning:</strong> Calculation rules (FuelEU targets, ETS factors) are frozen within each ledger entry. Replay is executed using the rule-version bound to that entry.</li>
+<li>Data can be questioned.</li>
+<li>Calculations can be disputed.</li>
+<li>Operators can make mistakes.</li>
 </ul>
 
-
-<h2>2. Mathematical Integrity — Arithmetic Sovereignty</h2>
+<p>
+Therefore every relevant outcome must be reconstructable from first principles.
+</p>
 
 <p>
-To eliminate IEEE-754 floating-point inaccuracies, Velonaut Core uses a native Decimal pipeline.
+If a number cannot be replayed, it has no institutional value.
+</p>
+
+
+<h2>Trust is produced, not asserted</h2>
+
+<p>
+The platform separates:
 </p>
 
 <ul>
-<li><strong>Decimal Native:</strong> Python <code>decimal</code> module with a context precision of 28 decimal places.</li>
-
-<li><strong>Zero-Float Policy:</strong> Immediate string-casting of physical inputs upon ingestion.</li>
-
-<li><strong>Quantization:</strong> <code>ROUND_HALF_UP</code> for terminal calculations.</li>
-
-<li><strong>String-Sovereignty:</strong> All numeric values in transit (JSON/API) are serialized as Strings to ensure deterministic hashing across runtimes (Python, Go, Rust, JS).</li>
+<li>physical evidence</li>
+<li>regulatory interpretation</li>
+<li>cryptographic commitment</li>
 </ul>
 
-
-<h2>3. Cryptographic Security Model</h2>
-
-<h3>A. Regulatory Anchor (reg_hash)</h3>
-
-<pre>reg_hash = SHA256(CanonicalJSON(Events, Rules, EngineVersion))</pre>
-
 <p>
-Proves that specific physical evidence was appraised under a specific rule set.
+No UI element, cache or convenience abstraction is considered part of the trust boundary.
 </p>
 
-<h3>B. Chained Asset Anchor (asset_hash)</h3>
 
-<pre>asset_hash = SHA256(prev_hash + reg_hash + payload)</pre>
+<h2>A minimal mental model</h2>
 
 <p>
-Creates a cryptographically linked history. Any past alteration invalidates all subsequent entries.
+Think of Velonaut as a machine that continuously answers:
 </p>
 
-<h3>C. Cryptographic Sealing (HMAC-SHA256)</h3>
-
 <p>
-Each ledger entry is sealed using HMAC-SHA256 with a server-side secret.
+<em>
+Given these exact inputs, under those exact rules,
+who attested that this result was correct at that time?
+</em>
 </p>
 
-<ul>
-<li><strong>Provisioning:</strong> SECRET_KEY is supplied via secure environment configuration (environment variables or secret managers).</li>
-
-<li><strong>Verification:</strong> Uses <code>hmac.compare_digest()</code> to mitigate timing attacks.</li>
-</ul>
-
-
-<h2>4. Forensic Validation Protocol</h2>
-
-<p>The engine performs five mandatory checks:</p>
-
-<ul>
-<li><strong>Signature Audit:</strong> Validates the HMAC seal.</li>
-<li><strong>Sequence Integrity:</strong> Ensures <code>seq</code> is strictly monotonic (n, n+1).</li>
-<li><strong>Chain Integrity:</strong> Verifies <code>prev_hashₙ ≡ asset_hashₙ₋₁</code>.</li>
-<li><strong>Timestamp Monotony:</strong> Enforces strictly monotonic UTC timestamps within the ledger sequence.</li>
-<li><strong>Deterministic Replay:</strong> Re-calculates volume from raw physical events and enforces exact equality under the configured Decimal context.</li>
-</ul>
-
-
-<h2>5. Trust Boundary Model</h2>
-
 <p>
-Velonaut explicitly separates physical truth, regulatory logic, and cryptographic sealing.
+Everything else is implementation detail.
 </p>
 
-<div class="diagram">
-<svg width="600" height="340" viewBox="0 0 600 340" xmlns="http://www.w3.org/2000/svg">
 
-<!-- Physical Layer -->
-<rect x="150" y="20" width="300" height="70" fill="#f1f5f9" stroke="#0f64a9" stroke-width="2"/>
-<text x="300" y="55" text-anchor="middle" font-size="14" font-weight="bold">Physical Energy Events</text>
-<text x="300" y="75" text-anchor="middle" font-size="12">(MJ, GHG, Scope)</text>
-
-<!-- Regulatory Layer -->
-<rect x="150" y="130" width="300" height="70" fill="#ffffff" stroke="#0f64a9" stroke-width="2"/>
-<text x="300" y="165" text-anchor="middle" font-size="14" font-weight="bold">Regulatory Rule Snapshot</text>
-<text x="300" y="185" text-anchor="middle" font-size="12">(FuelEU Targets, ETS Factors)</text>
-
-<!-- Ledger Layer -->
-<rect x="150" y="240" width="300" height="70" fill="#f1f5f9" stroke="#0f64a9" stroke-width="2"/>
-<text x="300" y="275" text-anchor="middle" font-size="14" font-weight="bold">Append-Only Ledger</text>
-<text x="300" y="295" text-anchor="middle" font-size="12">(reg_hash + asset_hash + HMAC)</text>
-
-<!-- Arrows -->
-<line x1="300" y1="90" x2="300" y2="130" stroke="#0f64a9" stroke-width="2"/>
-<line x1="300" y1="200" x2="300" y2="240" stroke="#0f64a9" stroke-width="2"/>
-
-</svg>
-</div>
+<h2>Developer responsibilities</h2>
 
 <p>
-Trust Boundary Summary:
+When extending or integrating with Velonaut, code must preserve:
 </p>
 
 <ul>
-<li>Physical data is immutable once committed.</li>
-<li>Regulatory constants are version-bound per entry.</li>
-<li>Ledger integrity is enforced cryptographically.</li>
-<li>The UI layer is explicitly outside the trust boundary.</li>
+<li>canonical JSON reproducibility</li>
+<li>signature verifiability</li>
+<li>strict sequencing</li>
+<li>monotonic causality</li>
+<li>explicit operator intent</li>
 </ul>
 
+<p>
+Hidden automation is discouraged.
+Traceable intent is preferred.
+</p>
 
-<h2>6. Non-Goals</h2>
+
+<h2>Verification outside the product</h2>
+
+<p>
+A central design objective is that a third party can validate outcomes <strong>without running Velonaut itself</strong>.
+</p>
+
+<p>
+If verification requires internal services, the design has failed.
+</p>
+
+
+<h2>Where the system is heading</h2>
+
+<p>
+The ambition is straightforward:
+</p>
+
+<p>
+Velonaut aims to become a neutral evidence substrate usable by shipping groups, fuel suppliers, auditors, class societies and regulators without modification of the underlying proof logic.
+</p>
+
+<p>
+Future layers therefore focus on:
+</p>
 
 <ul>
-<li>No decentralized consensus or mining.</li>
-<li>No financial token minting.</li>
-<li>No custody of funds or wallet management.</li>
-<li>No carbon market speculation.</li>
+<li><strong>External provenance:</strong> Signed market data and regulatory parameters entering the chain as attestable inputs.</li>
+<li><strong>Multi-party confirmation:</strong> Optional co-signatures and verifier nodes.</li>
+<li><strong>Formalized rule distribution:</strong> Machine-readable regulatory updates bound to execution context.</li>
+<li><strong>Extended interoperability:</strong> Deterministic verification toolkits in multiple languages.</li>
 </ul>
 
 
-<h2>7. Technical Roadmap</h2>
+<h2>What will not change</h2>
 
 <ul>
-<li><strong>v0.6:</strong> Append-only SQLite schema with BEFORE UPDATE/DELETE triggers (ABORT).</li>
-<li><strong>v0.7:</strong> Period Closure Markers (Yearly Freeze).</li>
-<li><strong>v0.8:</strong> Optional public timestamp anchoring (e.g., OpenTimestamps).</li>
+<li>append only</li>
+<li>explicit responsibility</li>
+<li>reproducibility over convenience</li>
+<li>mathematics over narrative</li>
 </ul>
 
 
-<h2>8. Canonicalization Standards</h2>
+<h2>Why developers tend to like this system</h2>
 
-<ul>
-<li>Alphabetical keys: <code>sort_keys=True</code></li>
-<li>Compact JSON: <code>separators=(',',':')</code></li>
-<li>UTF-8 encoding</li>
-<li>Numeric values serialized as Strings</li>
-</ul>
+<p>
+Because nothing is hidden.
+</p>
+
+<p>
+You can follow every bit from origin to signature, from signature to replay, and from replay to responsibility.
+</p>
+
+
+<h2>Final remark</h2>
+
+<p>
+Velonaut is engineered with the expectation that one day its outputs may be reviewed by parties who were not present at creation.
+</p>
+
+<p>
+Designing for that moment influences every line of code.
+</p>
+
 
 <div class="footer">
-Velonaut Core — Deterministic Infrastructure for Regulatory Accounting<br>
-Audit-Oriented Design | Maritime Integrity Architecture
+Velonaut — Deterministic Infrastructure for Institutional Evidence<br>
+Built for scrutiny
 </div>
 
 </div>
