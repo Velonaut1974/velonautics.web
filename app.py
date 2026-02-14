@@ -19,6 +19,44 @@ from decimal import Decimal, getcontext
 from datetime import datetime, timezone
 import time
 
+st.markdown("""
+    <style>
+    /* Das schwarze Terminal-Eingabefeld mit echtem Kontrast */
+    div[data-baseweb="input"] {
+        background-color: #000000 !important; /* Tiefschwarz */
+        border-radius: 4px !important;
+        border: 2px solid #444 !important; /* Hellere Kante */
+    }
+    
+    /* Die getippte Schrift und das 'Press Enter' */
+    input[type="password"] {
+        color: #FFFFFF !important; /* Knallweiß */
+        background-color: #000000 !important;
+        caret-color: white !important; /* Der blinkende Cursor */
+    }
+
+    /* Das 'Press Enter to apply' besser lesbar machen */
+    div[data-testid="InputInstructions"] {
+        color: #AAAAAA !important; /* Hellgrau statt Dunkelgrau */
+    }
+
+    /* Das Auge-Icon und Tooltips */
+    button[aria-label="Show password"], .stTooltipIcon {
+        color: #FFFFFF !important;
+    }
+
+    /* Hand-Cursor für alles Interaktive */
+    div[data-baseweb="select"], div[data-baseweb="input"], div[role="button"] {
+        cursor: pointer !important;
+    }
+    
+    /* Fokus-Zustand: Wenn du reinklickst, leuchtet es dezent */
+    div[data-baseweb="input"]:focus-within {
+        border: 2px solid #ff4b4b !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 
 st.markdown("""
@@ -317,6 +355,38 @@ except Exception as e:
     chain_errors = [str(e)]
 
 # ------------------------------------------------------------
+# 👤 IDENTITY & ROLE MANAGEMENT (Modul 2)
+# ------------------------------------------------------------
+with st.container(border=True):
+    st.markdown("###  SYSTEM IDENTITY")
+    c1, c2 = st.columns(2)
+    with c1:
+        # Initialisierung des Session States, falls noch leer
+        if "active_user" not in st.session_state:
+            st.session_state["active_user"] = "Jan-Erik"
+        
+        selected_user = st.selectbox(
+            "Current Operator", 
+            ["Jan-Erik", "Kristof", "External Auditor"],
+            index=0
+        )
+        st.session_state["active_user"] = selected_user
+        
+    with c2:
+        if "active_role" not in st.session_state:
+            st.session_state["active_role"] = "Compliance Officer"
+            
+        selected_role = st.radio(
+            "Active Role Context",
+            ["Compliance Officer", "Technical Manager", "Auditor"],
+            horizontal=True
+        )
+        st.session_state["active_role"] = selected_role
+
+st.markdown("---")
+
+
+# ------------------------------------------------------------
 # 🕹️ EMERGENCY CONTROL PANEL (Statt Sidebar)
 # ------------------------------------------------------------
 with st.container(border=True):
@@ -384,6 +454,129 @@ if st.sidebar.button(f"Seal Year {selected_year}", help="Sperrt das Jahr permane
             st.rerun()
     except Exception as e:
         st.sidebar.error(f"Fehler: {str(e)}")
+
+# ------------------------------------------------------------
+# 🛰️ INSTITUTIONAL INTELLIGENCE SENTINEL (Evidence Inbox)
+# ------------------------------------------------------------
+with st.container(border=True):
+    st.markdown("###  INTELLIGENCE SENTINEL")
+    st.caption("Active monitoring of EEX, EU-Lex and IMO data streams.")
+    
+    # Simulation der "Evidence Inbox"
+    pending_obs = [
+        {
+            "id": "OBS-EEX-26",
+            "source": "EEX Market Data",
+            "msg": "EUA Dec-26 Price exceeded 105.00 EUR/t (+12%)",
+            "impact": "Increased liability for pending 2026 certificates."
+        },
+        {
+            "id": "OBS-EU-30",
+            "source": "EU-Lex (DG CLIMA)",
+            "msg": "Updated FuelEU Maritime delegated act: Biomass RFNBO factors.",
+            "impact": "Recalculation of compliance balance required."
+        }
+    ]
+
+    for obs in pending_obs:
+        # Prüfung auf Ausblendung
+        if st.session_state.get(f"dismissed_{obs['id']}"):
+            continue
+
+        with st.expander(f"⚠️ REVIEW REQUIRED: {obs['source']}"):
+            st.write(f"**Observation:** {obs['msg']}")
+            st.write(f"**Impact:** {obs['impact']}")
+            
+            st.markdown("---")
+            
+            # --- TACTICAL AUTHENTICATION BLOCK ---
+            is_officer = st.session_state.get("active_role") == "Compliance Officer"
+            SECRET_PIN = "1920"
+            
+            # Schmale Spalte für das schwarze Terminal-Design
+            col_auth, _ = st.columns([1.2, 2]) 
+            
+            with col_auth:
+                st.write("**OPERATOR PIN**")
+                pin_input = st.text_input(
+                    label="PIN",
+                    type="password", 
+                    key=f"pin_{obs['id']}",
+                    label_visibility="collapsed",
+                    help="Geben Sie den 4-stelligen Sicherheitscode ein."
+                )
+            
+            if pin_input == SECRET_PIN and is_officer:
+                from datetime import datetime, timezone
+                st.warning(f"""
+                **LEGAL NOTICE: Pending Digital Signature** You are about to commit this evidence to the immutable ledger.  
+                **Signer:** {st.session_state.get('active_user')}  
+                **Role:** {st.session_state.get('active_role')}  
+                **Timestamp:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC  
+                *This action is irreversible and forensic.*
+                """)
+                
+                if st.button(f"✍️ Execute Binding Signature {obs['id']}", key=f"final_sign_{obs['id']}", type="primary"):
+                    payload = {
+                        "meta": {
+                            "observation_id": obs['id'],
+                            "event_class": "MARKET_PRICE_ALERT" if "Price" in obs['msg'] else "REGULATORY_UPDATE",
+                            "auth_method": "PIN_VERIFIED_SIGNATURE"
+                        },
+                        "interpretation": {
+                            "source": obs['source'],
+                            "statement": obs['msg'],
+                            "affected_scope": "GLOBAL_FLEET",
+                            "materiality": "MEDIUM",
+                        },
+                        "decision": {
+                            "review_outcome": "ACCEPTED",
+                            "recommended_action": "RECALCULATE_LIABILITY_RESERVE",
+                            "attested_by_role": st.session_state.get("active_role"),
+                            "attested_by_user": st.session_state.get("active_user"),
+                            "attested_at_utc": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                    
+                    try:
+                        # Hier rufen wir deine Commit-Funktion auf
+                        new_hash = commit_regulatory_snapshot("REGULATORY_ATTESTATION", payload, selected_year)
+                        if new_hash:
+                            st.session_state[f"success_{obs['id']}"] = True
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Critical Governance Error: {e}")
+            
+            elif pin_input != "" and pin_input != SECRET_PIN:
+                st.error("Invalid PIN. Access Denied.")
+            
+            # --- DISMISS LOGIK (In derselben vertikalen Flucht) ---
+            if not st.session_state.get(f"success_{obs['id']}"):
+                confirm_key = f"confirm_dismiss_{obs['id']}"
+                
+                if st.session_state.get(confirm_key):
+                    st.warning(f"⚠️ **ACHTUNG:** Durch das Verwerfen erklären Sie in Ihrer Rolle als **{st.session_state.get('active_role')}**, dass diese Information für die Organisation irrelevant ist.")
+                    c1, c2 = st.columns(2)
+                    if c1.button("Ja, verwerfen", key=f"yes_{obs['id']}", type="primary"):
+                        st.session_state[f"dismissed_{obs['id']}"] = True
+                        st.rerun()
+                    if c2.button("Abbrechen", key=f"no_{obs['id']}"):
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+                else:
+                    with col_auth:
+                        if st.button(f"✖ Dismiss {obs['id']}", key=f"dismiss_{obs['id']}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+
+        # --- STATUS NACH ERFOLGREICHEM SEALING ---
+        if st.session_state.get(f"success_{obs['id']}"):
+            st.success(f"✅ DOCUMENT SEALED: Evidence {obs['id']} committed by {st.session_state.get('active_user')}.")
+            if st.button(f"Acknowledge & Clear {obs['id']}", key=f"clear_{obs['id']}"):
+                st.session_state[f"dismissed_{obs['id']}"] = True
+                st.rerun()
+
+st.markdown("---")
 
 # ------------------------------------------------------------
 # 🚢 MAIN UI
@@ -514,23 +707,56 @@ for entry in all_entries:
             st.markdown(f'<div class="hash-box">{entry["block_hash"]}</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<p class="audit-pass">✅ Ed25519 Verified</p>', unsafe_allow_html=True)
+            # Kleiner Export für den Einzelblock
             st.download_button(
                 "📤 Audit Export", 
                 json.dumps(entry, indent=2), 
                 file_name=f"block_{entry['seq']}.json",
                 key=f"dl_{entry['seq']}"
-            )# --- INSTITUTIONAL FOOTER ---
+            )
+
+# --- GROSSER EXPORT BUTTON (Nachdem der Loop fertig ist) ---
+st.markdown("---")
+# WICHTIG: Wir nutzen all_entries direkt, da st.session_state["ledger_entries"] 
+# manchmal nach einem Refresh leer sein kann, die Datenbank aber die Wahrheit enthält.
+if all_entries:
+    import json
+    from datetime import datetime, timezone
+
+    full_audit_payload = {
+        "metadata": {
+            "report_type": "FULL_LEDGER_EXPORT",
+            "operator": st.session_state.get("active_user"),
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "entry_count": len(all_entries)
+        },
+        "ledger": all_entries
+    }
+    
+    st.download_button(
+        label=" Download Full Institutional Audit Trail",
+        data=json.dumps(full_audit_payload, indent=4),
+        file_name=f"velonaut_full_audit_{datetime.now().strftime('%Y%m%d')}.json",
+        mime="application/json",
+        type="primary",
+        use_container_width=True,
+        help="Sichert alle versiegelten Einträge in einer einzigen Datei."
+    )    
+
+# --- INSTITUTIONAL FOOTER ---
 st.divider()
 st.caption("© 2026 VELONAUT LABS | Institutional Prototyping | Ed25519 Secured")
 st.caption("DISCLAIMER: This system is a forensic infrastructure tool. It does not constitute legal or regulatory advice. Responsibility for data accuracy remains with the operator.")
+
 # --- FINAL SEAL (CENTERED & LARGE) ---
 st.write("") 
-st.write("") # Zusätzlicher Weißraum für die Urkunden-Optik
-col_s1, col_s2, col_s3 = st.columns([1, 1, 1]) # 1:1:1 Verhältnis für eine breite Mitte
+st.write("") 
+col_s1, col_s2, col_s3 = st.columns([1, 1, 1])
 
-with col_s2: # Die mittlere Spalte ist jetzt breiter
+with col_s2:
     try:
-        # use_container_width=True füllt die gesamte mittlere Spalte aus
-        st.image("assets/logo.png", width="stretch")
+        # 'use_container_width' ist der moderne Ersatz für 'use_column_width'
+        st.image("assets/logo.png", use_container_width=True)
     except:
-        pass
+        # Fallback, falls das Logo nicht gefunden wird
+        st.markdown("<div style='text-align: center;'>🏛️<br><b>VELONAUT ARITHMETIC SOVEREIGNTY</b></div>", unsafe_allow_html=True)
