@@ -1,62 +1,234 @@
-# 🚢 VELONAUTICS | Institutional Forensic Ledger v0.5.6
+VELONAUT
+Institutional Forensic Ledger
+Auditor & Operator Documentation
+1. Institutional Positioning
 
-**The Sovereignty Protocol for Maritime Carbon Insetting**
+VELONAUT provides a controlled environment for transforming operational maritime data into cryptographically verifiable compliance records.
 
----
+The system is designed to support review, reconstruction and third-party assurance processes under regulatory regimes such as EU ETS and FuelEU Maritime.
 
-## 🏗️ The Triple-Layer Architecture
-VELONAUTICS is built on a non-linear data integrity model designed to bridge the gap between physical bunker operations and institutional carbon markets.
+VELONAUT does not replace institutional judgement.
+It provides deterministic evidence infrastructure.
 
-### 📡 Layer I: Physical Data Proof (Sovereignty)
-The foundation of the system. Layer I ensures that raw physical data (IoT sensors, Bunker Delivery Notes) is cryptographically anchored. 
-* **Forensic Replay:** Every time the system boots, it re-calculates the entire fleet history to ensure zero data tampering.
-* **Deterministic Arithmetik:** Using IEEE-754 error-free `Decimal` math.
+2. What the System Guarantees Today
 
-### 🛡️ Layer II: Isolation Firewall (Compliance)
-This layer transforms physical raw data into regulatory "Compliance Events". 
-* **State Locking:** Once an event is moved to Layer II and locked, it is isolated from further modification.
-* **Audit Readiness:** This creates a frozen evidence base for FuelEU Maritime and EU ETS verification.
+At the current release stage, the platform provides:
 
-### 💎 Layer III: Additionality Assets (Tokenization)
-The issuance layer where "Net Surplus" is converted into tradeable assets.
-* **Chained Assets:** Every asset is linked to its predecessor, forming an immutable chain of custody.
-* **HMAC Signatures:** Each entry is cryptographically signed to prevent database manipulation.
+✔ sequential block integrity
+✔ cryptographic authorship
+✔ deterministic recalculation
+✔ historic reconstruction
+✔ independent verification outside the software
 
----
+The system intentionally requires human initiation for legally relevant actions.
 
-## 🛠️ Technical Specification (The "Nerd" Section)
+3. Architectural Overview
+Ledger Model
 
-### 1. Cryptographic Primitives
-* **Hashing Algorithm:** SHA-256 for all anchors.
-* **Signature Algorithm:** HMAC-SHA256 (Hash-based Message Authentication Code).
-* **Canonicalization:** All JSON structures are serialized using `sort_keys=True` and `separators=(',',':')` to ensure cross-platform hash consistency.
+VELONAUT operates a private, SQLite-backed append-only ledger.
 
-### 2. Forensic Security Model
-* **Arithmetic Sovereignty:** We utilize 28-point precision `Decimal` math to eliminate floating-point rounding errors (e.g., $0.1 + 0.2 \neq 0.3$).
-* **Regulatory Anchor:** The `reg_hash` separates physical truth from market strategy. If rules change (Engine Versioning), the physical proof remains valid.
-* **Timestamp Monotony:** The ledger rejects any entry with a timestamp earlier than the preceding entry, preventing "backdating fraud".
+Each block contains:
 
-### 3. Ledger Structure
-Each Asset Entry follows a strict forensic schema:
-- `seq`: Monotonic sequence counter.
-- `prev_hash`: Link to the preceding block.
-- `reg_hash`: Deterministic hash of physicals + rules + engine version.
-- `payload`: The actual asset data and volume.
-- `asset_hash`: The unique identifier of the block.
-- `signature`: The HMAC-SHA256 seal protecting the entire entry.
+sequence number
 
-### 4. Mathematical Replay Logic
-The system does not "trust" the stored volume (`vol`). During validation, it executes a **Deterministic Replay**:
-$$Total\_Balance = \sum ( (Target - Actual) \times Energy \times Scope )$$
-If the re-calculated balance deviates by even $10^{-7}$ from the stored volume, the Ledger triggers a **Critical Breach Alarm**.
+institution identifier
 
----
+block type
 
-## 🚀 Deployment & Demo Guide
-1. **Initialize:** The system starts with the `VELO-GENESIS` block (SEQ 0).
-2. **Locking:** Use the Isolation Firewall (Layer II) to freeze raw events.
-3. **Issuance:** Tokenize the resulting surplus in Layer III.
-4. **Audit:** Download the "Audit Export" JSON and verify it against the local hash engine.
+reporting year
 
----
-*Disclaimer: VELONAUTICS is a conceptual infrastructure project. No commercial services are offered at this stage.*
+previous block hash
+
+regulatory payload hash (for events)
+
+canonical payload
+
+block hash
+
+Ed25519 signature
+
+UTC timestamp
+
+Hashes are derived from canonical JSON serialization to guarantee reproducibility.
+
+Any modification would invalidate:
+
+the block hash
+
+the signature
+
+the forward chain
+
+Signature Framework
+
+All entries are signed using Ed25519.
+
+Verification during integrity checks automatically:
+
+re-computes each block hash
+
+verifies signatures
+
+validates hash continuity
+
+applies key succession rules after rotation
+
+Auditors can reproduce this without access to proprietary components.
+
+Genesis Binding
+
+At initialization, the first block embeds the institutional public key.
+
+If the locally active key deviates from the Genesis declaration, system operation halts.
+
+This prevents silent takeover of an existing ledger.
+
+Period Closure
+
+A reporting year can be sealed.
+
+During sealing:
+
+chain integrity is verified
+
+all hashes of the period are aggregated
+
+a deterministic master hash is created
+
+the closure block is signed and appended
+
+the year becomes append-locked
+
+Further entries for the period are rejected.
+
+Arithmetic Discipline
+
+Financial and volumetric computations are executed using fixed precision decimal arithmetic (28 digits).
+
+This ensures reproducible institutional results across environments.
+
+4. Operational Workflow
+Phase I – Raw Data Presence
+
+Operational energy events enter the system in RAW state.
+
+At this stage they remain comparable to external documentation.
+
+Phase II – Compliance Securing
+
+When an operator confirms an event, it is moved into a protected state.
+
+The original information remains visible.
+Any later correction would require a new ledger entry rather than alteration.
+
+Phase III – Regulatory Asset Formation
+
+If a compliance surplus exists:
+
+parameters (year, strategy) are chosen
+
+a market price input is declared
+
+a market snapshot is generated
+
+event references are frozen
+
+a signed ledger block is created
+
+The snapshot includes:
+
+price
+
+source declaration
+
+confidence classification
+
+timestamp
+
+snapshot hash
+
+Snapshots are additionally written to a separate historic table for traceability.
+
+5. Market Data Interpretation
+
+Market Snapshot v2 provides contextual valuation.
+
+It is not an execution venue and does not represent guaranteed liquidity.
+
+Responsibility for price correctness remains with the operator.
+
+The ledger guarantees only that the declared input is preserved.
+
+6. Governance Mechanisms
+Key Rotation
+
+A new public key can be introduced.
+
+The currently trusted key must sign the transition.
+
+During verification, trust automatically migrates along the chain.
+
+Database Reliability
+
+SQLite operates in:
+
+WAL mode
+
+FULL synchronous setting
+
+This prioritizes durability over speed.
+
+Failure Behaviour
+
+If inconsistencies are detected, the system switches from operational mode to protective halt.
+
+7. Independent Audit Capability
+
+Each block can be exported including:
+
+payload
+
+hash
+
+signature
+
+chain reference
+
+A third party can verify authenticity using standard Ed25519 libraries.
+
+No internal APIs are required.
+
+8. Current Maturity Assessment
+
+The system is suitable for:
+
+✔ supervised institutional environments
+✔ internal control frameworks
+✔ preparation for external audits
+✔ pilot operations
+
+The system is not yet positioned for:
+
+✖ autonomous market interaction
+✖ unsupervised regulatory submission
+
+9. Roadmap
+Automated Provenance Layer
+
+Planned integration of signed external price feeds.
+
+Regulatory Rule Versioning
+
+Machine-readable updates of tightening factors.
+
+Multi-Party Attestation
+
+Optional co-signatures by verifiers or authorities.
+
+10. Closing Statement
+
+VELONAUT focuses on making statements provable, not impressive.
+
+The system prefers explicit operator responsibility over hidden automation.
+
+For institutional environments, this is a feature.
