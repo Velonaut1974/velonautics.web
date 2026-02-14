@@ -69,6 +69,27 @@ li {
     font-size: 14px;
     color: #666;
 }
+
+/* 🌙 Dark Mode */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #0e1117;
+        color: #e2e8f0;
+    }
+    .container {
+        background: #0e1117;
+    }
+    header {
+        background: #000;
+    }
+    h2 {
+        color: #60a5fa;
+    }
+    .footer {
+        border-top: 1px solid #334155;
+        color: #94a3b8;
+    }
+}
 </style>
 </head>
 <body>
@@ -107,6 +128,7 @@ Developers interacting with Velonaut should think less about features and more a
 <li>period sealing via aggregated master hashes</li>
 <li>exportable blocks for independent validation</li>
 <li>durability settings prioritizing forensic safety over speed</li>
+<li>cryptographic binding of external market parameters (EEX / FuelEU pricing provenance)</li>
 </ul>
 
 <p>
@@ -164,6 +186,10 @@ Think of Velonaut as a machine that continuously answers:
 Given these exact inputs, under those exact rules,
 who attested that this result was correct at that time?
 </em>
+</p>
+
+<p>
+Regulatory logic is treated as a deterministic function, not a hidden calculation.
 </p>
 
 <p>
