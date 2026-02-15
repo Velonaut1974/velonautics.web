@@ -21,6 +21,26 @@ import time
 
 st.markdown("""
     <style>
+            /* Erzwingt Sichtbarkeit für Button-Texte in der Sidebar */
+.stSidebar button p {
+    color: #9CA3AF !important; /* Terminal-Grün */
+    font-weight: bold !important;
+}
+
+/* Optional: Damit der Button beim Drüberfahren (Hover) reagiert */
+.stSidebar button:hover {
+    border-color: #9CA3AF !important;
+    color: #FFFFFF !important;
+}
+            /* Fix für Sichtbarkeit der Jahreszahl */
+div[data-testid="stMetricValue"] {
+    color: #9CA3AF !important; /* Klassisches Terminal-Grün */
+}
+
+/* Falls es ein spezielles Label ist */
+.stCaption {
+    color: #AAAAAA !important; /* Hellgrau für Untertitel */
+}
     /* Das schwarze Terminal-Eingabefeld mit echtem Kontrast */
     div[data-baseweb="input"] {
         background-color: #000000 !important; /* Tiefschwarz */
@@ -380,37 +400,49 @@ except Exception as e:
     chain_errors = [str(e)]
 
 # ------------------------------------------------------------
-# 👤 IDENTITY & ROLE MANAGEMENT (Modul 2)
+# IDENTITY & ROLE MANAGEMENT
 # ------------------------------------------------------------
 with st.container(border=True):
-    st.markdown("###  SYSTEM IDENTITY")
+    st.markdown("### SYSTEM IDENTITY & ACCESS CONTROL")
+    st.caption("Security Note: High-privilege roles require PIN authorization (Test-PIN: 1234)")
+    
     c1, c2 = st.columns(2)
+    
+    # Nutzer-Datenbank (Mapping von Name zu Standard-Rolle)
+    user_registry = {
+        "Andreas": "OWNER",
+        "Kristof": "AUDITOR",
+        "Jan-Erik": "COMPLIANCE_OFFICER",
+        "Guest": "READ_ONLY"
+    }
+
     with c1:
-        # Initialisierung des Session States, falls noch leer
-        if "active_user" not in st.session_state:
-            st.session_state["active_user"] = "Jan-Erik"
-        
         selected_user = st.selectbox(
-            "Current Operator", 
-            ["Jan-Erik", "Kristof", "External Auditor"],
+            "Select Operator Identity", 
+            options=list(user_registry.keys()),
             index=0
         )
-        st.session_state["active_user"] = selected_user
         
     with c2:
-        if "active_role" not in st.session_state:
-            st.session_state["active_role"] = "Compliance Officer"
-            
-        selected_role = st.radio(
-            "Active Role Context",
-            ["Compliance Officer", "Technical Manager", "Auditor"],
-            horizontal=True
-        )
-        st.session_state["active_role"] = selected_role
+        # PIN-Abfrage für den Login-Vorgang
+        access_pin = st.text_input("Access PIN", type="password", help="Enter 1234 for testing purposes")
+
+    # Validierungs-Logik
+    if access_pin == "1234":
+        # Erfolg: Identität und Rolle werden im System festgeschrieben
+        st.session_state["active_user"] = selected_user
+        st.session_state["active_role"] = user_registry[selected_user]
+        st.success(f"ACCESS GRANTED: {st.session_state['active_user']} as {st.session_state['active_role']}")
+    elif access_pin == "":
+        st.info("Please enter PIN to initialize session.")
+        st.session_state["active_user"] = "NOT_AUTHENTICATED"
+        st.session_state["active_role"] = "GUEST"
+    else:
+        st.error("ACCESS DENIED: Invalid Credentials")
+        st.session_state["active_user"] = "NOT_AUTHENTICATED"
+        st.session_state["active_role"] = "GUEST"
 
 st.markdown("---")
-
-
 # ------------------------------------------------------------
 # 🕹️ EMERGENCY CONTROL PANEL (Statt Sidebar)
 # ------------------------------------------------------------
@@ -467,18 +499,36 @@ with st.container(border=True):
             except Exception as e:
                 st.error(f"Fehler: {e}")
 
-# --- NEU: PERIOD CLOSURE BUTTON ---
+# --- PERIOD CLOSURE (Authorized Access Only) ---
 st.sidebar.markdown("---")
-st.sidebar.subheader("🏛 Period Closure")
-if st.sidebar.button(f"Seal Year {selected_year}", help="Sperrt das Jahr permanent"):
-    try:
-        with st.spinner("Erzeuge Jahressiegel..."):
-            seal = ledger.seal_period(selected_year, lambda h: signing_key.sign(h).signature)
-            st.sidebar.success(f"Versiegelt! Hash: {seal[:12]}")
-            time.sleep(1.5)
-            st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Fehler: {str(e)}")
+st.sidebar.subheader("Final Period Closure")
+
+# 1. Barriere: Rollen-Check
+active_role = st.session_state.get("active_role", "GUEST")
+
+if active_role in ["OWNER", "AUDITOR"]:
+    st.sidebar.caption("Authorized Action: Cryptographic Period Seal")
+    
+    # PIN-Eingabe zur Bestätigung
+    seal_pin = st.sidebar.text_input("Enter Authorization PIN", type="password", key="seal_pin_input")
+    
+    if st.sidebar.button(f"Execute Seal: {selected_year}", width='stretch', type="primary"):
+        # 2. Barriere: PIN-Validierung (Wir nutzen hier die Sentinel-Logik)
+        if seal_pin == "1234":  # Hier später deine echte Admin-PIN hinterlegen
+            try:
+                with st.spinner("Generating Cryptographic Seal..."):
+                    # Der eigentliche Versiegelungs-Prozess
+                    seal = ledger.seal_period(selected_year, lambda h: signing_key.sign(h).signature)
+                    st.sidebar.success(f"Year {selected_year} locked successfully.")
+                    st.sidebar.code(f"Seal ID: {seal[:16]}", language="bash")
+                    time.sleep(2)
+                    st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Closure failed: {str(e)}")
+        else:
+            st.sidebar.error("Invalid Authorization PIN")
+else:
+    st.sidebar.warning("Seal Authority: Restricted to Auditor/Owner")
 
 # ------------------------------------------------------------
 # 🛰️ INSTITUTIONAL INTELLIGENCE SENTINEL (Evidence Inbox)
