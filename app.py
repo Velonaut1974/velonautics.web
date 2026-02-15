@@ -814,6 +814,171 @@ with st.expander("View Eligibility Pool (Released Data)", expanded=False):
     else:
         st.write("The Eligibility Pool is currently empty.")
 
+# ==============================================================================
+# MODUL 4: ASSET GOVERNANCE & FORENSIC REPLAY (v13.0 - Fortress Edition)
+# ==============================================================================
+import json
+import sqlite3
+import hashlib
+import time
+from datetime import datetime, timezone
+from nacl.signing import VerifyKey
+from nacl.encoding import HexEncoder
+
+# --- REGELWERK 2026 ---
+RULES_2026 = {
+    "version": "FuelEU-Maritime-v2026.01-Official",
+    "ef_vlsfo": 3.114,
+    "energy_density": 41.0,
+    "target_factor": 3.0
+}
+
+st.markdown("---")
+st.markdown("# ASSET GOVERNANCE CENTER")
+st.caption("Forensic Asset Generation | Deterministic Engine | Institutional Finality")
+
+# --- INITIALISIERUNG: AUTHORITY REGISTRY ---
+# Wir nutzen LEDGER_DB_PATH, den du oben im Script definiert hast
+with sqlite3.connect(LEDGER_DB_PATH) as conn:
+    conn.cursor().execute('''
+        CREATE TABLE IF NOT EXISTS authority_registry (
+            actor TEXT, role TEXT, valid_from TEXT, valid_until TEXT,
+            PRIMARY KEY (actor, role, valid_from)
+        )
+    ''')
+    conn.execute("INSERT OR IGNORE INTO authority_registry VALUES ('Andreas', 'OWNER', '2025-01-01', NULL)")
+    conn.execute("INSERT OR IGNORE INTO authority_registry VALUES ('Kristof', 'AUDITOR', '2025-01-01', NULL)")
+    conn.commit()
+
+# --- HELPER FUNKTIONEN ---
+def generate_deterministic_hash(data_rows):
+    canonical = json.dumps(data_rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+def sign_snapshot(snapshot_hash: str):
+    return signing_key.sign(snapshot_hash.encode("utf-8")).signature.hex()
+
+def verify_snapshot_signature(hash_value: str, signature_hex: str):
+    try:
+        v_key = VerifyKey(st.session_state.verify_key_hex, encoder=HexEncoder)
+        v_key.verify(hash_value.encode("utf-8"), bytes.fromhex(signature_hex))
+        return True
+    except Exception: return False
+
+# --- DIE FORENSISCHE ENGINE ---
+class FuelEUAssetEngine:
+    def __init__(self, eligible_reports, rule_set):
+        self.reports = eligible_reports
+        self.rules = rule_set
+        self.engine_version = "Velonaut-Engine-v13.0-Fortress"
+
+    def _generate_fingerprint(self, source_hashes, metrics):
+        payload = {"engine_version": self.engine_version, "rule_set": self.rules, "sources": sorted(source_hashes), "metrics": metrics}
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def calculate_assets(self):
+        if not self.reports: return None
+        total_fuel, total_emissions, source_refs, source_hashes, rejected = 0.0, 0.0, [], [], 0
+        for r in self.reports:
+            rid, _, vname, raw, stored_hash, reviewer = r
+            if hashlib.sha256(raw.encode()).hexdigest() != stored_hash or not reviewer:
+                rejected += 1
+                continue
+            data = json.loads(raw)
+            fuel = float(data.get("fuel_mt", 0))
+            total_fuel += fuel
+            total_emissions += fuel * self.rules["ef_vlsfo"]
+            source_refs.append({"id": rid, "hash": stored_hash})
+            source_hashes.append(stored_hash)
+        metrics = {"fuel_mt": round(total_fuel, 4), "emissions_t": round(total_emissions, 4), "balance_t": round((total_fuel * self.rules["target_factor"]) - total_emissions, 4)}
+        return {"metrics": {**metrics, "count": len(source_refs), "rejected": rejected}, "sources": source_refs, "engine_version": self.engine_version, "fingerprint": self._generate_fingerprint(source_hashes, metrics)}
+
+# --- DATEN LADEN (MIT SICHERHEITS-CHECK) ---
+eligible_reports = []
+with sqlite3.connect(LEDGER_DB_PATH) as conn:
+    try:
+        eligible_reports = conn.execute("""
+            SELECT report_id, imo, vessel_name, raw_json, receipt_hash, reviewed_by 
+            FROM telemetry_reports WHERE status = 'ELIGIBLE' ORDER BY received_at ASC
+        """).fetchall()
+    except sqlite3.OperationalError:
+        st.warning("Telemetry table not found in main database. Please ensure Module 3 is initialized.")
+
+# --- UI LOGIK ---
+if not eligible_reports:
+    st.info("No ELIGIBLE reports available. Please approve reports in Module 3 first.")
+else:
+    engine = FuelEUAssetEngine(eligible_reports, RULES_2026)
+    results = engine.calculate_assets()
+    res = results["metrics"]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Verified Fuel", f"{res['fuel_mt']} mt")
+    c2.metric("CO2 Emissions", f"{res['emissions_t']} t")
+    c3.metric("Compliance Balance", f"{res['balance_t']} t")
+
+    tab_cert, tab_lab = st.tabs(["Asset Certification", "Forensic Replay Lab"])
+
+    with tab_cert:
+        st.write("**Calculation Fingerprint:**")
+        st.code(results["fingerprint"], language="bash")
+        comment = st.text_input("Certification Statement", key="cert_stmt_final_v13")
+        if st.session_state.get("active_role") == "OWNER":
+            if st.button("Sign & Commit to Ledger", width='stretch', type="primary"):
+                if comment:
+                    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                        auth_data = conn.execute("SELECT actor, role, valid_from, valid_until FROM authority_registry ORDER BY actor, role, valid_from").fetchall()
+                        auth_hash = generate_deterministic_hash(auth_data)
+                        source_ids = [s["id"] for s in results["sources"]]
+                        cust_data = conn.execute(f"SELECT report_id, previous_status, new_status, actor, role, timestamp_utc, comment FROM telemetry_custody_log WHERE report_id IN ({','.join(['?']*len(source_ids))}) ORDER BY timestamp_utc, id", source_ids).fetchall()
+                        cust_hash = generate_deterministic_hash(cust_data)
+                        
+                        payload = {"calculation_fingerprint": results["fingerprint"], "engine_version": results["engine_version"], "rules_version": results["rules"]["version"], "authority_snapshot_hash": auth_hash, "authority_snapshot_signature": sign_snapshot(auth_hash), "custody_snapshot_hash": cust_hash, "custody_snapshot_signature": sign_snapshot(cust_hash), "sources": results["sources"], "metrics": results["metrics"], "attestation": {"by_user": st.session_state.get("active_user"), "at_utc": datetime.now(timezone.utc).isoformat(), "statement": comment}}
+                        
+                        # Wir nutzen das ledger Objekt direkt, falls commit_regulatory_snapshot fehlt
+                        new_hash = ledger.add_entry("FUELEU_ASSET_CERTIFICATION", payload, selected_year, lambda h: signing_key.sign(h).signature)
+                        if new_hash: st.success("INSTITUTIONALLY SIGNED & COMMITTED."); time.sleep(1); st.rerun()
+                else: st.warning("Statement required.")
+
+    with tab_lab:
+        # Sicherer Abruf der Historie
+        all_entries = []
+        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+            try:
+                # Wir fragen die Tabelle ab, die VelonautLedger intern nutzt
+                all_entries = conn.execute("SELECT seq, block_hash, block_type, timestamp_utc, payload_json FROM regulatory_ledger ORDER BY seq DESC").fetchall()
+            except sqlite3.OperationalError:
+                st.error("Ledger table not found. Please ensure Module 2 is initialized.")
+        
+        asset_blocks = [e for e in all_entries if e[2] == "FUELEU_ASSET_CERTIFICATION"]
+        if not asset_blocks: st.info("No certifications found in Ledger.")
+        else:
+            sel_block = st.selectbox("Historical Record", asset_blocks, format_func=lambda x: f"Block {x[1][:12]} (Seq: {x[0]})")
+            p = json.loads(sel_block[4])
+            if st.button("Run Forensic Replay", width='stretch'):
+                s_ids = [s["id"] for s in p["sources"]]
+                with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                    rows = conn.execute(f"SELECT report_id, raw_json, receipt_hash, status, vessel_name, reviewed_by FROM telemetry_reports WHERE report_id IN ({','.join(['?']*len(s_ids))})", s_ids).fetchall()
+                    curr_cust = conn.execute(f"SELECT report_id, previous_status, new_status, actor, role, timestamp_utc, comment FROM telemetry_custody_log WHERE report_id IN ({','.join(['?']*len(s_ids))}) ORDER BY timestamp_utc, id", s_ids).fetchall()
+                    curr_auth = conn.execute("SELECT actor, role, valid_from, valid_until FROM authority_registry ORDER BY actor, role, valid_from").fetchall()
+                
+                st.markdown("### Integrity Audit")
+                cc_hash = generate_deterministic_hash(curr_cust)
+                if p.get("custody_snapshot_hash") == cc_hash and verify_snapshot_signature(cc_hash, p.get("custody_snapshot_signature")): st.success("Process: SIGNATURE VALID")
+                else: st.error("Process: TAMPER DETECTED")
+                
+                ca_hash = generate_deterministic_hash(curr_auth)
+                if p.get("authority_snapshot_hash") == ca_hash and verify_snapshot_signature(ca_hash, p.get("authority_snapshot_signature")): st.success("Governance: SIGNATURE VALID")
+                else: st.warning("Governance: REGISTRY DRIFT")
+                
+                rep_eng = FuelEUAssetEngine([(r[0], "N/A", r[4], r[1], r[2], r[5]) for r in rows], RULES_2026)
+                rep_res = rep_eng.calculate_assets()
+                if rep_res and rep_res["fingerprint"] == p["calculation_fingerprint"]: st.success("Calculation: MATHEMATICALLY IDENTICAL")
+                else: st.error("Calculation: MISMATCH")
+
+st.markdown("""<style>div[data-testid="stMetricValue"] { color: #D1D5DB !important; } .stTabs [data-baseweb="tab"] { background-color: #1E1E1E; color: #9CA3AF; border-radius: 4px; } .stTabs [aria-selected="true"] { color: #FFFFFF !important; border-bottom-color: #D1D5DB !important; }</style>""", unsafe_allow_html=True)
+
+
 # ------------------------------------------------------------
 # 🚢 MAIN UI
 # ------------------------------------------------------------
