@@ -866,6 +866,7 @@ def verify_snapshot_signature(hash_value: str, signature_hex: str):
     except Exception: return False
 
 # --- DIE FORENSISCHE ENGINE ---
+
 class FuelEUAssetEngine:
     def __init__(self, eligible_reports, rule_set):
         self.reports = eligible_reports
@@ -906,6 +907,12 @@ with sqlite3.connect(LEDGER_DB_PATH) as conn:
         st.warning("Telemetry table not found in main database. Please ensure Module 3 is initialized.")
 
 # --- UI LOGIK ---
+
+st.write("### 🔍 DIAGNOSE-CHECK")
+st.write("Anzahl Berichte in 'eligible_reports':", len(eligible_reports))
+
+if len(eligible_reports) > 0:
+    st.write("Inhalt des ersten Datensatzes:", eligible_reports[0])
 if not eligible_reports:
     st.info("No ELIGIBLE reports available. Please approve reports in Module 3 first.")
 else:
