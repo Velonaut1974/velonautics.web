@@ -54,6 +54,31 @@ st.markdown("""
     div[data-baseweb="input"]:focus-within {
         border: 2px solid #ff4b4b !important;
     }
+            /* --- MODUL 3: FLEET GATEWAY STYLES --- */
+
+/* Der Inbound Log Ticker (Terminal Look) */
+.stCode {
+    border-left: 3px solid #00FF00 !important;
+    background-color: #0A0A0A !important;
+}
+
+/* Status-Indikatoren in den Spalten */
+.status-pill {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', Courier, monospace;
+    text-transform: uppercase;
+}
+
+/* Spezielle Formatierung für den Eligibility Pool Header */
+.eligibility-header {
+    background-color: #1A1A1A;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #333;
+    margin-bottom: 15px;
+}
     </style>
     """, unsafe_allow_html=True)
 
@@ -578,6 +603,167 @@ with st.container(border=True):
 
 st.markdown("---")
 
+#------------------------------------------------
+# Modul 3: Fleet Gateway (Version 2026 - Clean)
+#-----------------------------------------------
+import hashlib
+import uuid
+import json
+import sqlite3
+from datetime import datetime, timezone
+
+# --- INITIALISIERUNG ---
+with sqlite3.connect(LEDGER_DB_PATH) as conn:
+    conn.cursor().execute('''
+        CREATE TABLE IF NOT EXISTS telemetry_reports (
+            report_id TEXT PRIMARY KEY,
+            imo TEXT,
+            vessel_name TEXT,
+            raw_json TEXT,
+            received_at TEXT,
+            receipt_hash TEXT,
+            status TEXT,
+            reviewed_by TEXT,
+            reviewed_role TEXT,
+            reviewed_at TEXT,
+            governance_comment TEXT
+        )
+    ''')
+    conn.commit()
+
+# --- FORENSIC HELPERS ---
+def get_canonical_representation(data_dict):
+    return json.dumps(data_dict, sort_keys=True, separators=(',', ':'))
+
+def generate_forensic_receipt_hash(imo, ts, canonical_payload):
+    forensic_string = f"IMO:{imo}|TS:{ts}|DATA:{canonical_payload}"
+    return hashlib.sha256(forensic_string.encode('utf-8')).hexdigest()
+
+# ------------------------------------------------------------
+# MODUL 3: FLEET GATEWAY
+# ------------------------------------------------------------
+st.markdown("---")
+st.markdown("## FLEET GATEWAY")
+st.caption("Institutional Intake Layer | Forensic Mode: ENABLED | Atomic State Control")
+
+# --- ZONE A: GATEWAY RECEIPT ---
+with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
+    st.info("Status: Listening | Forensic Recipe: v1 | Time: UTC")
+    
+    if st.button("Simulate New Noon Report Intake"):
+        new_id = f"GR-{uuid.uuid4().hex[:6].upper()}"
+        imo_val = "9411147"
+        vessel_name = "VELONAUT PRIDE"
+        raw_payload = {"dist_nm": 310.5, "fuel_mt": 14.2, "type": "VLSFO", "eng_hours": 24}
+        
+        received_at = datetime.now(timezone.utc).isoformat()
+        canonical_payload = get_canonical_representation(raw_payload)
+        r_hash = generate_forensic_receipt_hash(imo_val, received_at, canonical_payload)
+        
+        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+            conn.cursor().execute('''
+                INSERT INTO telemetry_reports (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (new_id, imo_val, vessel_name, canonical_payload, received_at, r_hash, "RECEIVED"))
+            conn.commit()
+        st.rerun()
+
+    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+        reports = conn.cursor().execute('SELECT * FROM telemetry_reports ORDER BY received_at DESC LIMIT 5').fetchall()
+    for r in reports:
+        st.code(f"ID: {r[0]} | HASH: {r[5][:12]}... | STATUS: {r[6]}", language="bash")
+
+
+# --- ZONE B: VALIDATION BUFFER ---
+st.markdown("### Validation Buffer")
+with sqlite3.connect(LEDGER_DB_PATH) as conn:
+    pending_reports = conn.cursor().execute(
+        'SELECT * FROM telemetry_reports WHERE status IN ("RECEIVED", "FLAGGED", "UNDER_REVIEW") ORDER BY received_at DESC'
+    ).fetchall()
+
+if not pending_reports:
+    st.info("No active validation tasks. Fleet Telemetry is fully processed.")
+else:
+    for r in pending_reports:
+        with st.expander(f"ACTION REQUIRED: {r[2]} (ID: {r[0]})"):
+            
+            if r[6] == "RECEIVED":
+                with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                    conn.cursor().execute(
+                        'UPDATE telemetry_reports SET status="UNDER_REVIEW" WHERE report_id=? AND status="RECEIVED"', 
+                        (r[0],)
+                    )
+                    conn.commit()
+            
+            payload_dict = json.loads(r[3])
+            col_data, col_val = st.columns([2, 1])
+            
+            with col_data:
+                st.write("**Raw Payload (Canonical View):**")
+                st.json(payload_dict)
+                st.caption(f"Received at: {r[4]} (UTC) | Hash: `{r[5]}`")
+            
+            with col_val:
+                st.write("**Automated Scrutiny:**")
+                if payload_dict.get("fuel_mt", 0) > 15:
+                    st.error("ANOMALY: High Consumption Flag")
+                else:
+                    st.success("No automated anomaly detected")
+
+            st.markdown("---")
+            
+            # --- ZONE C: ELIGIBILITY POOL ---
+            with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                current_status = conn.cursor().execute('SELECT status FROM telemetry_reports WHERE report_id=?', (r[0],)).fetchone()[0]
+            
+            if current_status in ["ELIGIBLE", "REJECTED"]:
+                st.warning(f"Finalized as: {current_status}")
+            else:
+                st.write("**Compliance Decision (Manual Attestation)**")
+                comment = st.text_input("Decision Reasoning (Mandatory)", key=f"cmt_{r[0]}", placeholder="Required for forensic audit...")
+                
+                c1, c2 = st.columns(2)
+                decision_time = datetime.now(timezone.utc).isoformat()
+                user, role = st.session_state.get("active_user"), st.session_state.get("active_role")
+
+                if c1.button("Approve for Compliance Use", key=f"app_{r[0]}", width='stretch', type="primary"):
+                    if comment:
+                        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                            res = conn.cursor().execute('''
+                                UPDATE telemetry_reports 
+                                SET status='ELIGIBLE', reviewed_by=?, reviewed_role=?, reviewed_at=?, governance_comment=?
+                                WHERE report_id=? AND status IN ("RECEIVED", "UNDER_REVIEW", "FLAGGED")
+                            ''', (user, role, decision_time, comment, r[0]))
+                            conn.commit()
+                            if res.rowcount > 0: st.rerun()
+                            else: st.error("Race Condition: Record already processed.")
+                    else: st.warning("Reasoning mandatory.")
+                    
+                if c2.button("Reject / Non-Material", key=f"rej_{r[0]}", width='stretch'):
+                    if comment:
+                        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                            res = conn.cursor().execute('''
+                                UPDATE telemetry_reports 
+                                SET status='REJECTED', reviewed_by=?, reviewed_role=?, reviewed_at=?, governance_comment=?
+                                WHERE report_id=? AND status IN ("RECEIVED", "UNDER_REVIEW", "FLAGGED")
+                            ''', (user, role, decision_time, comment, r[0]))
+                            conn.commit()
+                            if res.rowcount > 0: st.rerun()
+                            else: st.error("Race Condition Error.")
+                    else: st.warning("Reasoning mandatory.")
+
+# --- PERSISTENCE VIEW ---
+with st.expander("View Eligibility Pool (Released Data)", expanded=False):
+    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+        eligible_data = conn.cursor().execute('''
+            SELECT report_id, vessel_name, reviewed_at, reviewed_by, governance_comment 
+            FROM telemetry_reports WHERE status="ELIGIBLE"
+        ''').fetchall()
+    if eligible_data:
+        st.table(eligible_data)
+    else:
+        st.write("The Eligibility Pool is currently empty.")
+
 # ------------------------------------------------------------
 # 🚢 MAIN UI
 # ------------------------------------------------------------
@@ -635,7 +821,7 @@ if balance > 0:
     market_value = Decimal(str(report.net_surplus)) * Decimal(str(eua_price))
     col_c.metric("Est. Market Value (EUA)", f"€ {market_value:,.2f}")
 
-    if st.button("GENERATE REGULATORY ASSET", use_container_width=True):
+    if st.button("GENERATE REGULATORY ASSET", width='stretch'):
         raw_events = []
         for e in fleet.get_all_events():
             if e.state != State.RAW:
@@ -739,7 +925,7 @@ if all_entries:
         file_name=f"velonaut_full_audit_{datetime.now().strftime('%Y%m%d')}.json",
         mime="application/json",
         type="primary",
-        use_container_width=True,
+        width='stretch',
         help="Sichert alle versiegelten Einträge in einer einzigen Datei."
     )    
 
@@ -756,7 +942,7 @@ col_s1, col_s2, col_s3 = st.columns([1, 1, 1])
 with col_s2:
     try:
         # 'use_container_width' ist der moderne Ersatz für 'use_column_width'
-        st.image("assets/logo.png", use_container_width=True)
+        st.image("assets/logo.png", width='stretch')
     except:
         # Fallback, falls das Logo nicht gefunden wird
         st.markdown("<div style='text-align: center;'>🏛️<br><b>VELONAUT ARITHMETIC SOVEREIGNTY</b></div>", unsafe_allow_html=True)
