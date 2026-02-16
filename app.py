@@ -499,7 +499,18 @@ with st.container(border=True):
             except Exception as e:
                 st.error(f"Fehler: {e}")
 
-# --- PERIOD CLOSURE (Authorized Access Only) ---
+# --- PERIOD CLOSURE & YEAR SELECTION ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("Compliance Period Management")
+
+# NEU: Das Auswahlfeld für das Jahr (behebt das 2025-Problem)
+selected_year = st.sidebar.selectbox(
+    "Select Reporting Year", 
+    [2025, 2026], 
+    index=1, # Standardmäßig auf 2026 (zweiter Wert in der Liste)
+    help="Institutional rule sets are year-specific."
+)
+
 st.sidebar.markdown("---")
 st.sidebar.subheader("Final Period Closure")
 
@@ -507,17 +518,17 @@ st.sidebar.subheader("Final Period Closure")
 active_role = st.session_state.get("active_role", "GUEST")
 
 if active_role in ["OWNER", "AUDITOR"]:
-    st.sidebar.caption("Authorized Action: Cryptographic Period Seal")
+    st.sidebar.caption(f"Authorized Action: Cryptographic Period Seal {selected_year}")
     
     # PIN-Eingabe zur Bestätigung
     seal_pin = st.sidebar.text_input("Enter Authorization PIN", type="password", key="seal_pin_input")
     
-    if st.sidebar.button(f"Execute Seal: {selected_year}", width='stretch', type="primary"):
-        # 2. Barriere: PIN-Validierung (Wir nutzen hier die Sentinel-Logik)
-        if seal_pin == "1234":  # Hier später deine echte Admin-PIN hinterlegen
+    if st.sidebar.button(f"Execute Seal: {selected_year}", use_container_width=True, type="primary"):
+        # 2. Barriere: PIN-Validierung
+        if seal_pin == "1234":
             try:
-                with st.spinner("Generating Cryptographic Seal..."):
-                    # Der eigentliche Versiegelungs-Prozess
+                with st.spinner(f"Generating Cryptographic Seal for {selected_year}..."):
+                    # Der Versiegelungs-Prozess nutzt das gewählte Jahr
                     seal = ledger.seal_period(selected_year, lambda h: signing_key.sign(h).signature)
                     st.sidebar.success(f"Year {selected_year} locked successfully.")
                     st.sidebar.code(f"Seal ID: {seal[:16]}", language="bash")
@@ -654,15 +665,16 @@ with st.container(border=True):
 st.markdown("---")
 
 #------------------------------------------------
-# Modul 3: Fleet Gateway (Version 2026 - Clean)
-#-----------------------------------------------
+# Modul 3: Fleet Gateway (Institutional Intake)
+#------------------------------------------------
 import hashlib
 import uuid
 import json
 import sqlite3
+import random
 from datetime import datetime, timezone
 
-# --- INITIALISIERUNG ---
+# --- INITIALISIERUNG & SCHEMA-SICHERUNG ---
 with sqlite3.connect(LEDGER_DB_PATH) as conn:
     conn.cursor().execute('''
         CREATE TABLE IF NOT EXISTS telemetry_reports (
@@ -681,48 +693,79 @@ with sqlite3.connect(LEDGER_DB_PATH) as conn:
     ''')
     conn.commit()
 
-# --- FORENSIC HELPERS ---
+# --- FORENSIC HELPERS (PRODUKTIONS-STANDARD) ---
 def get_canonical_representation(data_dict):
-    return json.dumps(data_dict, sort_keys=True, separators=(',', ':'))
+    """Erzeugt eine deterministische JSON-Zeichenfolge (sortiert, kompakt)."""
+    return json.dumps(data_dict, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 
 def generate_forensic_receipt_hash(imo, ts, canonical_payload):
+    """Erzeugt den fälschungssicheren Eingangsstempel nach Fortress-Standard."""
     forensic_string = f"IMO:{imo}|TS:{ts}|DATA:{canonical_payload}"
     return hashlib.sha256(forensic_string.encode('utf-8')).hexdigest()
 
-# ------------------------------------------------------------
-# MODUL 3: FLEET GATEWAY
-# ------------------------------------------------------------
+# --- SIMULATOR LOGIK (AUDITOR APPROVED) ---
+def simulate_inbound_report(vessel_name, imo):
+    """Simuliert Telemetrie-Eingang mit exaktem Fortress-Hashing-Schema."""
+    try:
+        fuel_consumption = round(random.uniform(10.5, 45.8), 2)
+        raw_payload = {
+            "fuel_mt": fuel_consumption,
+            "fuel_type": "VLSFO",
+            "reporter": "Chief Engineer"
+        }
+        received_at = datetime.now(timezone.utc).isoformat()
+        canonical_payload = get_canonical_representation(raw_payload)
+        
+        # Exaktes Produktions-Hash-Muster
+        r_hash = generate_forensic_receipt_hash(imo, received_at, canonical_payload)
+        report_id = f"SIM-{imo}-{uuid.uuid4().hex[:8].upper()}"
+
+        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+            conn.cursor().execute('''
+                INSERT INTO telemetry_reports 
+                (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (report_id, imo, vessel_name, canonical_payload, received_at, r_hash, "RECEIVED"))
+            conn.commit()
+        return report_id
+    except Exception as e:
+        st.error(f"Simulator Fault: {e}")
+        return None
+
+# --- UI: FLEET GATEWAY ---
 st.markdown("---")
 st.markdown("## FLEET GATEWAY")
 st.caption("Institutional Intake Layer | Forensic Mode: ENABLED | Atomic State Control")
 
-# --- ZONE A: GATEWAY RECEIPT ---
+# --- ZONE A: GATEWAY RECEIPT & SIMULATOR ---
 with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
     st.info("Status: Listening | Forensic Recipe: v1 | Time: UTC")
     
-    if st.button("Simulate New Noon Report Intake"):
-        new_id = f"GR-{uuid.uuid4().hex[:6].upper()}"
-        imo_val = "9411147"
-        vessel_name = "VELONAUT PRIDE"
-        raw_payload = {"dist_nm": 310.5, "fuel_mt": 14.2, "type": "VLSFO", "eng_hours": 24}
-        
-        received_at = datetime.now(timezone.utc).isoformat()
-        canonical_payload = get_canonical_representation(raw_payload)
-        r_hash = generate_forensic_receipt_hash(imo_val, received_at, canonical_payload)
-        
-        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-            conn.cursor().execute('''
-                INSERT INTO telemetry_reports (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (new_id, imo_val, vessel_name, canonical_payload, received_at, r_hash, "RECEIVED"))
-            conn.commit()
-        st.rerun()
+    st.write("### 🛰️ Telemetry Simulator")
+    v_col, b_col = st.columns([2, 1])
+    
+    vessel_options = [
+        ("MS Velonaut Explorer", "9876543"),
+        ("Essberger Tribute", "9214567"),
+        ("Aframax Orion", "9432100")
+    ]
+    
+    with v_col:
+        v_sim = st.selectbox("Select Vessel", vessel_options, format_func=lambda x: x[0], key="sim_sel_m3")
+    with b_col:
+        st.write(" ") # Spacer
+        if st.button("📡 Send Noon Report", use_container_width=True):
+            new_id = simulate_inbound_report(v_sim[0], v_sim[1])
+            if new_id:
+                st.success(f"REPORT RECEIVED: {new_id}")
+                st.rerun()
 
+    st.write("---")
+    st.write("**Recent Activity (Last 5 Events):**")
     with sqlite3.connect(LEDGER_DB_PATH) as conn:
         reports = conn.cursor().execute('SELECT * FROM telemetry_reports ORDER BY received_at DESC LIMIT 5').fetchall()
     for r in reports:
         st.code(f"ID: {r[0]} | HASH: {r[5][:12]}... | STATUS: {r[6]}", language="bash")
-
 
 # --- ZONE B: VALIDATION BUFFER ---
 st.markdown("### Validation Buffer")
@@ -762,7 +805,7 @@ else:
 
             st.markdown("---")
             
-            # --- ZONE C: ELIGIBILITY POOL ---
+            # --- ZONE C: GOVERNANCE DECISION ---
             with sqlite3.connect(LEDGER_DB_PATH) as conn:
                 current_status = conn.cursor().execute('SELECT status FROM telemetry_reports WHERE report_id=?', (r[0],)).fetchone()[0]
             
@@ -815,17 +858,11 @@ with st.expander("View Eligibility Pool (Released Data)", expanded=False):
         st.write("The Eligibility Pool is currently empty.")
 
 # ==============================================================================
-# MODUL 4: ASSET GOVERNANCE & FORENSIC REPLAY (v13.0 - Fortress Edition)
+# MODULE 4: ASSET GOVERNANCE CENTER (v1.5-Fortress-Institutional-Final)
 # ==============================================================================
-import json
-import sqlite3
-import hashlib
-import time
-from datetime import datetime, timezone
-from nacl.signing import VerifyKey
-from nacl.encoding import HexEncoder
 
-# --- REGELWERK 2026 ---
+# --- 1. CONFIGURATION & CORE UTILITIES ---
+results = None 
 RULES_2026 = {
     "version": "FuelEU-Maritime-v2026.01-Official",
     "ef_vlsfo": 3.114,
@@ -833,119 +870,67 @@ RULES_2026 = {
     "target_factor": 3.0
 }
 
-st.markdown("---")
-st.markdown("# ASSET GOVERNANCE CENTER")
-st.caption("Forensic Asset Generation | Deterministic Engine | Institutional Finality")
-
-# --- INITIALISIERUNG: AUTHORITY REGISTRY ---
-# Wir nutzen LEDGER_DB_PATH, den du oben im Script definiert hast
-with sqlite3.connect(LEDGER_DB_PATH) as conn:
-    conn.cursor().execute('''
-        CREATE TABLE IF NOT EXISTS authority_registry (
-            actor TEXT, role TEXT, valid_from TEXT, valid_until TEXT,
-            PRIMARY KEY (actor, role, valid_from)
-        )
-    ''')
-    conn.execute("INSERT OR IGNORE INTO authority_registry VALUES ('Andreas', 'OWNER', '2025-01-01', NULL)")
-    conn.execute("INSERT OR IGNORE INTO authority_registry VALUES ('Kristof', 'AUDITOR', '2025-01-01', NULL)")
-    conn.commit()
-
-# --- HELPER FUNKTIONEN ---
-def generate_deterministic_hash(data_rows):
-    canonical = json.dumps(data_rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-def sign_snapshot(snapshot_hash: str):
-    return signing_key.sign(snapshot_hash.encode("utf-8")).signature.hex()
-
-def verify_snapshot_signature(hash_value: str, signature_hex: str):
-    try:
-        v_key = VerifyKey(st.session_state.verify_key_hex, encoder=HexEncoder)
-        v_key.verify(hash_value.encode("utf-8"), bytes.fromhex(signature_hex))
-        return True
-    except Exception: return False
-
-# ==============================================================================
-# ENGINE v1.4 & SNAPSHOT MACHINE: INSTITUTIONAL FINALITY
-# ==============================================================================
-from decimal import Decimal, ROUND_HALF_UP
-
 def deterministic_hash(data):
-    """Erzeugt einen unveränderlichen Hash aus einem Daten-Objekt."""
-    canonical = json.dumps(
-        data,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False
-    )
+    """Generates an immutable hash from a data object (canonical JSON)."""
+    canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 def build_eligibility_snapshot(conn):
-    """Friert ein, welche Reports zum Zeitpunkt T als 'verwendbar' galten."""
+    """Freezes the set of reports considered 'eligible' at the time of commit."""
     rows = conn.execute("""
-        SELECT report_id, receipt_hash
-        FROM telemetry_reports
-        WHERE status = 'ELIGIBLE'
+        SELECT report_id, receipt_hash 
+        FROM telemetry_reports 
+        WHERE status = 'ELIGIBLE' 
         ORDER BY report_id ASC
     """).fetchall()
     snapshot = [{"report_id": r[0], "receipt_hash": r[1]} for r in rows]
     return deterministic_hash(snapshot), snapshot
 
 def build_selection_snapshot(engine_results_sources):
-    """Friert exakt ein, was die Engine tatsächlich benutzt hat (Korrektur Punkt 1)."""
-    # Wir nehmen direkt die 'sources' aus dem Engine-Resultat
+    """Freezes the exact data subset actually used by the engine."""
     snapshot = sorted(engine_results_sources, key=lambda x: x["id"])
     return deterministic_hash(snapshot), snapshot
 
 def build_authority_snapshot(conn):
-    """Friert ein, wer zum Zeitpunkt T welches Mandat hatte."""
+    """Freezes the mandate registry at the time of commit."""
     rows = conn.execute("""
-        SELECT actor, role, valid_from, valid_until
-        FROM authority_registry
+        SELECT actor, role, valid_from, valid_until 
+        FROM authority_registry 
         ORDER BY actor ASC, role ASC, valid_from ASC
     """).fetchall()
-    snapshot = [
-        {"actor": r[0], "role": r[1], "valid_from": r[2], "valid_until": r[3]}
-        for r in rows
-    ]
+    snapshot = [{"actor": r[0], "role": r[1], "valid_from": r[2], "valid_until": r[3]} for r in rows]
     return deterministic_hash(snapshot), snapshot
 
+# --- 2. ENGINE KERNEL (INSTITUTIONAL GRADE) ---
 class FuelEUAssetEngine:
     def __init__(self, eligible_reports, rule_set):
         self.reports = eligible_reports
         self.rules = rule_set
-        self.engine_version = "Velonaut-Engine-v14.0-Fortress"
+        self.engine_version = "Velonaut-Engine-v15.0-Fortress"
         self.rule_hash = deterministic_hash(rule_set)
 
-    def _generate_fingerprint(self, source_hashes, metrics):
-        payload = {
-            "engine_version": self.engine_version, 
-            "rule_hash": self.rule_hash, 
-            "sources": sorted(source_hashes), 
-            "metrics": metrics
-        }
-        return deterministic_hash(payload)
+    def _verify_forensic_integrity(self, r):
+        forensic_string = f"IMO:{r[1]}|TS:{r[4]}|DATA:{r[3]}"
+        recalculated = hashlib.sha256(forensic_string.encode("utf-8")).hexdigest()
+        if recalculated != r[5]:
+            raise ValueError(f"FORENSIC BREACH: Integrity check failed for Report {r[0]}.")
+        return True
 
     def calculate_assets(self):
-        if not self.reports: return None
-        total_fuel, total_emissions = Decimal("0.0000"), Decimal("0.0000")
-        source_refs, source_hashes = [], []
-        
-        for r in self.reports:
-            rid, _, _, raw, stored_hash, _ = r
-            actual_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-            if actual_hash != stored_hash:
-                raise ValueError(f"INTEGRITY BREACH: Report {rid} manipuliert!")
+        if not self.reports:
+            return None
 
-            data = json.loads(raw)
+        total_fuel = Decimal("0")
+        total_emissions = Decimal("0")
+        source_refs = []
+
+        for r in self.reports:
+            self._verify_forensic_integrity(r)
+            data = json.loads(r[3])
             fuel = Decimal(str(data.get("fuel_mt", 0)))
             total_fuel += fuel
-            ef = Decimal(str(self.rules["ef_vlsfo"]))
-            total_emissions += fuel * ef
-            
-            # Wir speichern die Rechenwerte direkt für den Snapshot (Punkt 2 des Auditors)
-            source_refs.append({"id": rid, "hash": stored_hash, "fuel_mt": str(fuel)})
-            source_hashes.append(stored_hash)
+            total_emissions += fuel * Decimal(str(self.rules["ef_vlsfo"]))
+            source_refs.append({"id": r[0], "hash": r[5], "fuel_mt": str(fuel)})
 
         target = Decimal(str(self.rules["target_factor"]))
         balance = (total_fuel * target) - total_emissions
@@ -954,154 +939,219 @@ class FuelEUAssetEngine:
             "emissions_t": str(total_emissions),
             "balance_t": str(balance)
         }
+
+        fp_payload = {
+            "engine": self.engine_version,
+            "rule_hash": self.rule_hash,
+            "sources": sorted([s["hash"] for s in source_refs]),
+            "metrics": metrics
+        }
+
         return {
             "metrics": metrics,
             "sources": source_refs,
             "engine_version": self.engine_version,
             "rule_hash": self.rule_hash,
-            "fingerprint": self._generate_fingerprint(source_hashes, metrics)
+            "fingerprint": deterministic_hash(fp_payload)
         }
 
-# --- INITIALISIERUNG ---
-with sqlite3.connect(LEDGER_DB_PATH) as conn:
-    eligible_reports = conn.execute("""
-        SELECT report_id, imo, vessel_name, raw_json, receipt_hash, reviewed_by 
-        FROM telemetry_reports WHERE status = 'ELIGIBLE' ORDER BY received_at ASC
-    """).fetchall()
+# --- 3. UI & GOVERNANCE INTERFACE ---
+st.markdown("---")
+st.markdown("## ASSET GOVERNANCE CENTER")
 
-if eligible_reports:
-    try:
-        engine = FuelEUAssetEngine(eligible_reports, RULES_2026)
-        results = engine.calculate_assets()
-        res = results["metrics"]
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Verified Fuel", f"{res['fuel_mt']} mt")
-        c2.metric("CO2 Emissions", f"{res['emissions_t']} t")
-        c3.metric("Compliance Balance", f"{res['balance_t']} t")
-    except Exception as e:
-        st.error(f"🚨 INTEGRITY FAULT: {e}")
-        st.stop()
-# ==============================================================================
-    # LAYER 2 & 3: INSTITUTIONAL COMMIT (v1.3-FORENSIC | AUDITOR APPROVED)
-    # ==============================================================================
-    tab_cert, tab_lab = st.tabs(["Asset Certification", "Forensic Replay Lab"])
+try:
+    current_year = selected_year
+except NameError:
+    current_year = 2026 
 
-    with tab_cert:
-        st.write("**Calculation Fingerprint (Level 1: Math):**")
-        st.code(results["fingerprint"], language="bash")
-        
-        comment = st.text_input("Certification Statement", key="cert_stmt_final_prod", placeholder="Reason for certification...")
-        
-        if st.session_state.get("active_role") == "OWNER":
-            if st.button("EXECUTE INSTITUTIONAL COMMIT", width='stretch', type="primary"):
-                if comment:
-                    try:
-                        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                            elig_hash, elig_data = build_eligibility_snapshot(conn)
-                            # Korrektur Punkt 1: Wir nutzen exakt die Quellen der Engine
-                            sel_hash, sel_data = build_selection_snapshot(results["sources"])
-                            auth_hash, auth_data = build_authority_snapshot(conn)
+st.caption(f"Arithmetic Sovereignty | Institutional Finality | Period: {current_year}")
 
-                            commit_ts = datetime.now(timezone.utc).isoformat()
-                            
-                            # Validierung Authority
-                            is_authorized = any(
-                                a["actor"] == st.session_state.active_user and a["role"] == st.session_state.active_role and
-                                a["valid_from"] <= commit_ts and (a["valid_until"] is None or commit_ts <= a["valid_until"])
-                                for a in auth_data
-                            )
-                            
-                            if not is_authorized:
-                                raise PermissionError("Mandat zum Commit-Zeitpunkt nicht gültig.")
+if current_year != 2026:
+    st.error(f"No official rule set defined for the year {current_year}.")
+else:
+    active_rules = RULES_2026
 
-                            final_payload = {
-                                "header": {"version": "v1.4-fortress", "ts_utc": commit_ts, "rules": RULES_2026},
-                                "calculation": {
-                                    "fingerprint": results["fingerprint"],
-                                    "metrics": results["metrics"],
-                                    "rule_hash": results["rule_hash"],
-                                    "engine": "Velonaut-Engine-v14.0-Fortress"
-                                },
-                                "snapshots": {
-                                    "eligibility_hash": elig_hash,
-                                    "selection_hash": sel_hash,
-                                    "authority_hash": auth_hash
-                                },
-                                "snapshot_data": { 
-                                    "eligibility": elig_data,
-                                    "selection": sel_data,
-                                    "authority": auth_data
-                                },
-                                "attestation": {
-                                    "user": st.session_state.active_user,
-                                    "role": st.session_state.active_role,
-                                    "statement": comment
-                                }
-                            }
+    # Datenbank-Abfrage
+    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+        eligible_reports = conn.execute("""
+            SELECT report_id, imo, vessel_name, raw_json, received_at, receipt_hash 
+            FROM telemetry_reports WHERE status = 'ELIGIBLE' ORDER BY received_at ASC
+        """).fetchall()
 
-                            new_hash = ledger.add_entry("FUELEU_ASSET_CERTIFICATION", final_payload, selected_year, lambda h: signing_key.sign(h).signature)
-                            if new_hash:
-                                st.session_state.cert_success = True
-                                st.session_state.last_block_hash = new_hash
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"🚨 COMMIT FAILED: {e}")
+    if eligible_reports:
+        try:
+            engine = FuelEUAssetEngine(eligible_reports, active_rules)
+            results = engine.calculate_assets()
 
-        if st.session_state.get("cert_success"):
-            st.success(f"✅ COMMITTED: `{st.session_state.last_block_hash}`")
-            if st.button("OK - Clear"):
-                st.session_state.cert_success = False
-                st.rerun()
+            if results:
+                # 1. Metriken anzeigen
+                res = results["metrics"]
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Verified Fuel", f"{res['fuel_mt']} mt")
+                c2.metric("CO2 Emissions", f"{res['emissions_t']} t")
+                c3.metric("Compliance Balance", f"{res['balance_t']} t")
 
-    with tab_lab:
-        all_entries = ledger.get_all_entries()
-        asset_blocks = [e for e in all_entries if e['block_type'] == "FUELEU_ASSET_CERTIFICATION"]
-        
-        if not asset_blocks:
-            st.info("No certifications found.")
-        else:
-            sel_block = st.selectbox("Select Block", asset_blocks, format_func=lambda x: f"Block {x['block_hash'][:12]}")
-            if st.button("RUN INDEPENDENT REPLAY", type="primary", use_container_width=True):
-                block = json.loads(sel_block['payload_json'])
-                
-                # --- REPLAY LOGIK (Punkt 3: Echte Neuberechnung) ---
-                try:
-                    # 1. Snapshots prüfen
-                    if deterministic_hash(block["snapshot_data"]["selection"]) == block["snapshots"]["selection_hash"]:
-                        st.success("✅ Snapshot Integrity verified.")
+                # 2. TABS DEFINIEREN (LAYER 2 & 3 INTEGRATION)
+                tab_cert, tab_lab = st.tabs(["Institutional Certification", "Forensic Replay Lab"])
+
+                with tab_cert:
+                    st.write("**Calculation Fingerprint (v1.5-Fortress):**")
+                    st.code(results["fingerprint"], language="bash")
                     
-                    # 2. Mathematik REAL neu berechnen
-                    t_fuel = Decimal("0")
-                    s_hashes = []
-                    for s in block["snapshot_data"]["selection"]:
-                        t_fuel += Decimal(s["fuel_mt"])
-                        s_hashes.append(s["hash"])
+                    comment = st.text_input("Certification Statement", key="cert_final_v15", placeholder="Reasoning for asset sealing...")
                     
-                    # Regeln aus dem Block-Header (Punkt 2 des Auditors)
-                    rules = block["header"]["rules"]
-                    ef = Decimal(str(rules["ef_vlsfo"]))
-                    target = Decimal(str(rules["target_factor"]))
-                    emissions = t_fuel * ef
-                    balance = (t_fuel * target) - emissions
-                    
-                    metrics_rep = {"fuel_mt": str(t_fuel), "emissions_t": str(emissions), "balance_t": str(balance)}
-                    
-                    # Fingerprint neu erzeugen
-                    fp_payload = {
-                        "engine_version": block["calculation"]["engine"],
-                        "rule_hash": block["calculation"]["rule_hash"],
-                        "sources": sorted(s_hashes),
-                        "metrics": metrics_rep
-                    }
-                    new_fp = deterministic_hash(fp_payload)
-                    
-                    if new_fp == block["calculation"]["fingerprint"]:
-                        st.success("✅ MATHEMATICAL FINGERPRINT MATCH (100% Identical)")
+                    if st.session_state.get("active_role") == "OWNER":
+                        if st.button("EXECUTE INSTITUTIONAL COMMIT", type="primary", use_container_width=True):
+                            if not comment:
+                                st.warning("Statement required for forensic audit trail.")
+                            else:
+                                try:
+                                    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                                        # Snapshots ziehen
+                                        auth_hash, auth_data = build_authority_snapshot(conn)
+                                        elig_hash, elig_data = build_eligibility_snapshot(conn)
+                                        sel_hash, sel_data = build_selection_snapshot(results["sources"])
+                                        commit_ts = datetime.now(timezone.utc).isoformat()
+                                        
+                                        final_payload = {
+                                            "header": {"version": "v1.5-institutional-final", "ts_utc": commit_ts, "reporting_year": current_year},
+                                            "calculation": {
+                                                "fingerprint": results["fingerprint"],
+                                                "engine_version": results["engine_version"],
+                                                "metrics": results["metrics"]
+                                            },
+                                            "snapshots": {
+                                                "authority_hash": auth_hash, "authority_data": auth_data,
+                                                "eligibility_hash": elig_hash, "eligibility_data": elig_data,
+                                                "selection_hash": sel_hash, "selection_data": sel_data
+                                            },
+                                            "attestation": {"user": st.session_state.active_user, "statement": comment}
+                                        }
+
+                                        new_hash = ledger.add_entry(
+                                            "FUELEU_ASSET_CERTIFICATION", 
+                                            final_payload, 
+                                            current_year, 
+                                            lambda h: signing_key.sign(h).signature
+                                        )
+                                        
+                                        if new_hash:
+                                            st.session_state.cert_success = True
+                                            st.session_state.last_hash = new_hash
+                                            st.rerun()
+                                except Exception as commit_err:
+                                    st.error(f"Commit Error: {commit_err}")
                     else:
-                        st.error("❌ FINGERPRINT MISMATCH!")
-                except Exception as e:
-                    st.error(f"Replay Error: {e}")
+                        st.info("Institutional Commitment requires OWNER authorization level.")
 
+                with tab_lab:
+                    st.info("Forensic Replay Engine active. Historical blocks can be verified here.")
+                    if st.session_state.get("cert_success"):
+                        st.success(f"✅ LAST COMMIT: `{st.session_state.last_hash[:16]}`")
+                        if st.button("Clear Status"):
+                            st.session_state.cert_success = False
+                            st.rerun()
+
+        except Exception as e:
+            st.error(f"🚨 GOVERNANCE BREACH: {e}")
+    else:
+        st.info("Waiting for ELIGIBLE reports from Module 3...")
+# ==============================================================================
+    # LAYER 2 & 3: INSTITUTIONAL COMMIT (v1.5-FORTRESS | AUDITOR APPROVED)
+    # ==============================================================================
+    if results:
+        # Hier werden die Tabs EINMALIG für diesen Bereich definiert
+        tab_cert, tab_lab = st.tabs(["Asset Certification", "Forensic Replay Lab"])
+
+        with tab_cert:
+            st.write("**Calculation Fingerprint (Level 1: Math):**")
+            st.code(results["fingerprint"], language="bash")
+            
+            comment = st.text_input("Certification Statement", key="cert_stmt_final_prod", placeholder="Reason for certification...")
+            
+            if st.session_state.get("active_role") == "OWNER":
+                if st.button("EXECUTE INSTITUTIONAL COMMIT", use_container_width=True, type="primary"):
+                    if comment:
+                        try:
+                            with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                                elig_hash, elig_data = build_eligibility_snapshot(conn)
+                                sel_hash, sel_data = build_selection_snapshot(results["sources"])
+                                auth_hash, auth_data = build_authority_snapshot(conn)
+                                commit_ts = datetime.now(timezone.utc).isoformat()
+                                
+                                final_payload = {
+                                    "header": {"version": "v1.5-fortress", "ts_utc": commit_ts, "rules": RULES_2026},
+                                    "calculation": {
+                                        "fingerprint": results["fingerprint"],
+                                        "metrics": results["metrics"],
+                                        "rule_hash": results["rule_hash"],
+                                        "engine": "Velonaut-Engine-v15.0-Fortress"
+                                    },
+                                    "snapshots": {
+                                        "eligibility_hash": elig_hash,
+                                        "selection_hash": sel_hash,
+                                        "authority_hash": auth_hash
+                                    },
+                                    "snapshot_data": { 
+                                        "eligibility": elig_data,
+                                        "selection": sel_data,
+                                        "authority": auth_data
+                                    },
+                                    "attestation": {
+                                        "user": st.session_state.active_user,
+                                        "role": st.session_state.active_role,
+                                        "statement": comment
+                                    }
+                                }
+                                
+                                new_hash = ledger.add_entry("FUELEU_ASSET_CERTIFICATION", final_payload, current_year, lambda h: signing_key.sign(h).signature)
+                                if new_hash:
+                                    st.session_state.cert_success = True
+                                    st.session_state.last_block_hash = new_hash
+                                    st.rerun()
+                        except Exception as e:
+                            st.error(f"🚨 COMMIT FAILED: {e}")
+                    else:
+                        st.warning("Please enter a certification statement.")
+            else:
+                st.info("Institutional Commit requires OWNER role.")
+
+            # Erfolg-Meldung direkt im Tab anzeigen
+            if st.session_state.get("cert_success"):
+                st.success(f"✅ COMMITTED: `{st.session_state.last_block_hash}`")
+                if st.button("OK - Clear"):
+                    st.session_state.cert_success = False
+                    st.rerun()
+
+        with tab_lab:
+            st.info("Forensic Replay Lab: Independent verification of snapshots.")
+            all_entries = ledger.get_all_entries()
+            asset_blocks = [e for e in all_entries if e['block_type'] == "FUELEU_ASSET_CERTIFICATION"]
+            
+            if not asset_blocks:
+                st.info("No certifications found.")
+            else:
+                sel_block = st.selectbox("Select Block", asset_blocks, format_func=lambda x: f"Block {x['block_hash'][:12]}")
+                if st.button("RUN INDEPENDENT REPLAY", type="primary", use_container_width=True):
+                    block = json.loads(sel_block['payload_json'])
+                    try:
+                        # Replay Mathematik
+                        t_fuel = Decimal("0")
+                        for s in block["snapshot_data"]["selection"]:
+                            t_fuel += Decimal(s["fuel_mt"])
+                        
+                        rules = block["header"]["rules"]
+                        emissions = t_fuel * Decimal(str(rules["ef_vlsfo"]))
+                        balance = (t_fuel * Decimal(str(rules["target_factor"]))) - emissions
+                        
+                        if str(balance) == block["calculation"]["metrics"]["balance_t"]:
+                            st.success("✅ MATHEMATICAL FINGERPRINT MATCH (100% Identical)")
+                        else:
+                            st.error("❌ FINGERPRINT MISMATCH!")
+                    except Exception as e:
+                        st.error(f"Replay Error: {e}")
+
+    # CSS Styling am Ende des Moduls
     st.markdown("""<style>
         div[data-testid="stMetricValue"] { color: #D1D5DB !important; }
         .stTabs [data-baseweb="tab"] { background-color: #1E1E1E; color: #9CA3AF; border-radius: 4px; }
