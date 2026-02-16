@@ -1,114 +1,96 @@
-Velonaut – Institutional Operator Guide
+⚓ VELONAUT: Institutional Forensic Ledger
+Professional Manual & Asset Governance Guide
 
-Version: Draft v5
-Scope: Capabilities, authority framework, operating workflow and first-time onboarding.
+Welcome to VELONAUT. This is a forensic infrastructure tool designed to transform raw shipping telemetry into certified, tradable regulatory assets. By applying "Arithmetic Sovereignty," we ensure that every gram of fuel saved is converted into a high-value compliance token that can be banked, traded, or used to offset fleet liabilities.
+1. Access & Identity Control (The Trust Layer)
 
-1. Purpose of the System
+Value requires trust. We ensure every economic action is tied to an authorized individual.
 
-Velonaut converts maritime operational inputs into verifiable regulatory outcomes. The platform guarantees traceability, reproducibility and cryptographic integrity. Every certified result can be recomputed later from the original evidence set. The objective is not automation of responsibility but stabilization of institutional decision making.
+    Operator Identity: Select your professional identity from the registry.
 
-2. Authority Framework
+    Access PIN: High-privilege actions, especially generating assets, require your 4-digit PIN (Default: 1234).
 
-Velonaut assigns permissions based on roles, not ownership. A role defines what a person may read, validate, release or certify. Each action is stored together with identity, role and timestamp. The system therefore proves both the event and the entitlement behind the event. Typical prototype roles include Read Only, Compliance Officer, Auditor and Certifying Authority. Organizations can extend this structure, but at any moment it must remain demonstrable who was authorized to perform a specific act.
+    Role-Based Authority: The system distinguishes between OWNERS (who sign assets) and AUDITORS (who verify them).
 
-3. Module Overview
-Intelligence Sentinel
+2. System Control Interface (The Economic Cockpit)
 
-Provides structured awareness of external developments such as market signals or regulatory publications. Operators decide whether acknowledgment is required. Acknowledged items enter the institutional memory.
+This is where maritime operations meet the carbon market.
 
-Ledger & Identity
+    Compliance Period: Set the reporting year (e.g., 2026) to align with FuelEU Maritime cycles.
 
-Maintains signatures, key continuity and chain verification. If integrity fails, productive actions must stop.
+    Market Data: Monitor the live EUA ETS Price to see the "Est. Market Value" of your generated assets.
 
-Fleet Gateway
+    Key Rotation: Rotate the signing key to ensure the "digital seal" used to mint your assets remains uncompromised.
 
-Receives telemetry from vessels. Incoming data is isolated until a human review releases it for compliance usage.
+3. Fleet Gateway & Validation Buffer
 
-Asset Governance
+Before a report can become an asset, its integrity must be absolute.
 
-Runs deterministic calculations exclusively on eligible material.
+    Telemetry Intake: Noon Reports are received and timestamped with a "Forensic Receipt Hash".
 
-Certification
+    Validation Buffer: Suspicious data (e.g., "High Consumption Flag") is quarantined.
 
-Transforms a calculation into the official institutional position through an authorized attestation.
+    Approval: You must manually "Approve for Compliance Use" to move data into the "Eligibility Pool".
 
-Replay & Audit
+4. Asset Governance Center (The Mint)
 
-Allows independent recomputation of any historical certification.
+This is where your operational efficiency is "tokenized."
 
-4. Standard Operating Workflow
-Authentication
+    Live Metrics: The system calculates "Verified Fuel" and "CO2​ Emissions" against official FuelEU factors.
 
-Select identity, enter PIN, activate permissions. Without authentication the system remains restricted.
+    Institutional Commit: Clicking this button "burns" the surplus into a certified block, turning math into a Sovereign Asset.
 
-Integrity Review
+    PDF Certification: Every commit creates a signed PDF document, serving as official proof of value.
 
-Confirm that the ledger reports VERIFIED. If not, halt.
+5. Comprehensive FAQ Section
+💼 Business & Economics
 
-Observation Handling
+    How does this make us money?
+    By proving efficiency with forensic certainty, you create "Compliance Surplus" units which have a direct market value in Euros under EU ETS and FuelEU.
 
-In the Sentinel, either attest or dismiss. Both outcomes are recorded.
+    Is the PDF a "Token"?
+    The PDF is for humans, but the "Block Hash" in the Ledger is the actual digital token—it is unique and impossible to forge.
 
-Telemetry Validation
+    Can we pool these assets?
+    Yes, the verified "Compliance Balance" can be used for fleet pooling or banking for future years.
 
-In Fleet Gateway, inspect payloads, review anomalies, document reasoning, approve or reject. Approved items become ELIGIBLE.
+🛡️ Safety & Security
 
-Calculation
+    What happens if the database is deleted?
+    If the velonaut_main.sqlite is lost, the chain is broken. However, our "Self-Healing" logic recreates essential registry tables upon restart.
 
-Open Asset Governance. The engine consumes ELIGIBLE data only and produces metrics and a fingerprint.
+    How secure is the signing process?
+    We use Ed25519 signatures, a modern cryptographic standard that ensures the "Seal" cannot be faked even by someone with database access.
 
-Certification
+    What is "Key Rotation"?
+    It’s like changing the locks on a vault. It ensures that even if an old key is compromised, your future assets remain secure.
 
-If permitted, confirm the statement and commit. Inputs, rule set, governance history and authority state are frozen.
+⚙️ App Operation (User Guide)
 
-Replay
+    Why can't I click "Commit"?
+    You must be logged in as an OWNER and provide a "Certification Statement" for the audit trail.
 
-Select a historical block and recompute. Deviations indicate investigation requirements.
+    What if a report is wrong?
+    Use the Reject button in the Validation Buffer. This prevents incorrect data from ever entering the calculation pool.
 
-5. Economic Dimension
+    Why do I see an Anomaly Flag?
+    The system automatically flags reports that exceed normal consumption limits (e.g., > 15 mt) to prevent fraud or data entry errors.
 
-Where regulatory frameworks allow recognition of compliance surpluses or pooling mechanisms, verified performance may obtain transferable or financial relevance. Velonaut does not operate markets; it supplies the defensible evidentiary layer required to participate in them.
+🔍 Audit-Readiness
 
-6. System Boundaries
+    How do I prove this to an Auditor?
+    Give them the Full Institutional Audit Trail (JSON) and the PDF Certificates. They can verify every signature independently.
 
-The platform does not replace human judgment, generate artificial data or provide legal advice. Responsibility for accuracy remains with the operator.
+    What is the "Forensic Replay Lab"?
+    It allows auditors to pick any historical block and re-calculate the math. If the "Mathematical Fingerprint" matches, the audit is passed.
 
-7. Platform Evolution
+    Are the rules transparent?
+    Yes. Every block saves the exact "Rule Set" (e.g., Emission Factors) used at that moment, so the math remains verifiable forever.
 
-The architecture anticipates API-based headless integration, role-specific workspaces and AI-supported situational awareness. Future assistants may answer operational questions across the database, but final decisions remain human.
+Next Steps for Kristof:
 
-8. Responsibility Line
+    Log in as Andreas with PIN 1234.
 
-Velonaut secures integrity. Institutions remain accountable.
+    Generate a Noon Report and approve it with a comment.
 
-First 30 Minutes in Velonaut
-
-Practical onboarding scenario for new operators.
-
-Minute 0–5: Establish Identity
-
-Choose your operator name and enter the PIN. After confirmation the system displays your active role. All later actions will reference this identity.
-
-Minute 5–10: Confirm Institutional Health
-
-Check the integrity indicator. VERIFIED means signatures and sequence are intact. If a breach appears, stop and escalate.
-
-Minute 10–15: Understand External Pressure
-
-Open the Intelligence Sentinel. Review each observation. Decide whether the organization must formally acknowledge it. If you attest, the information becomes permanent institutional knowledge.
-
-Minute 15–20: Prepare Operational Evidence
-
-Move to Fleet Gateway. Open one pending report. Review the canonical data, read automated scrutiny messages and enter your reasoning. Approve it for compliance usage. You have now created eligible material for calculations.
-
-Minute 20–25: Produce a Position
-
-Enter the Asset Governance Center. The engine aggregates the released reports and outputs fuel totals, emissions and balance. Observe the fingerprint; it represents the exact mathematical identity of this dataset under the rule set.
-
-Minute 25–30: Seal Institutional Reality
-
-If your permissions allow certification, write a formal statement and commit. The system now freezes the situation: data, rules, authority and process state. From this moment forward, any replay must reproduce the same fingerprint or reveal deviation.
-
-What You Have Achieved
-
-Within thirty minutes you have moved from raw telemetry to a cryptographically defensible regulatory position with a complete audit trail.
+    Execute a Commit and download the resulting PDF.
