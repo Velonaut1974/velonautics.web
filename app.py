@@ -1678,24 +1678,72 @@ else:
 st.subheader("Certification Registry (Asset Layer)")
 
 with sqlite3.connect(LEDGER_DB_PATH) as conn:
-    # Wir holen die Zertifikate direkt aus der Tabelle, ohne den Ledger-Umweg
     try:
-        certs = conn.execute("SELECT block_hash, payload, timestamp, prev_hash FROM ledger_entries ORDER BY timestamp DESC").fetchall()
+        conn.row_factory = sqlite3.Row
+        certs = conn.execute("SELECT block_hash, payload as payload_json, timestamp, prev_hash FROM ledger_entries ORDER BY timestamp DESC").fetchall()
     except sqlite3.OperationalError:
         certs = []
 
 if certs:
     for c in certs:
-        c_hash, c_payload_raw, c_ts, c_prev = c
         try:
-            c_payload = json.loads(c_payload_raw)
-            with st.expander(f"CERT: {c_hash[:12]} | {c_ts}"):
-                st.write(f"**Statement:** {c_payload.get('statement', 'N/A')}")
-                st.write(f"**Operator:** {c_payload.get('operator', 'UNKNOWN')}")
-                st.json(c_payload.get('metrics', {}))
-                st.markdown(f'<div class="hash-box" style="background-color: #000; color: #9CA3AF; padding: 5px;">{c_hash}</div>', unsafe_allow_html=True)
-        except Exception:
-            continue
+            raw_payload = json.loads(c["payload_json"])
+            
+            # --- TRANSLATION LAYER: Wir machen das Zertifikat PDF-kompatibel ---
+            # Deine PDF-Funktion erwartet "calculation" -> "metrics"
+            formatted_payload = {
+                "header": {
+                    "certificate_id": c["block_hash"][:12],
+                    "rules": {"target_factor": raw_payload.get("rules", {}).get("target", "3.0")}
+                },
+                "calculation": {
+                    "engine_version": raw_payload.get("engine_version", "v1.0-INST"),
+                    "metrics": raw_payload.get("metrics", {})
+                }
+            }
+
+            block_record = {
+                "block_hash": c["block_hash"],
+                "signature": "Ed25519_Institutional_Verified",
+                "reporting_year": selected_year,
+                "payload_json": json.dumps(formatted_payload) # Das hier füttert jetzt die PDF-Engine
+            }
+            
+            with st.expander(f"CERT: {c['block_hash'][:12]} | {c['timestamp']}"):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.write(f"**Operator:** {raw_payload.get('operator', 'UNKNOWN')}")
+                    st.write(f"**Statement:** {raw_payload.get('statement', 'N/A')}")
+                    st.json(raw_payload.get('metrics', {}))
+
+                with col2:
+                    # JSON Export
+                    st.download_button(
+                        label="📄 Download JSON",
+                        data=json.dumps(raw_payload, indent=2),
+                        file_name=f"certificate_{c['block_hash'][:8]}.json",
+                        mime="application/json",
+                        key=f"json_btn_{c['block_hash']}",
+                        width="stretch"
+                    )
+                    
+                    # PDF Export (FIXED)
+                    try:
+                        pdf_data = generate_asset_pdf_from_block(block_record)
+                        st.download_button(
+                            label="📑 Download PDF",
+                            data=pdf_data,
+                            file_name=f"velonaut_cert_{c['block_hash'][:8]}.pdf",
+                            mime="application/pdf",
+                            key=f"pdf_btn_{c['block_hash']}",
+                            width="stretch"
+                        )
+                    except Exception as pdf_err:
+                        st.error(f"PDF Engine: {pdf_err}")
+                            
+        except Exception as e:
+            st.error(f"Display Error: {e}")
 else:
     st.info("No institutional certificates generated yet.")
 
