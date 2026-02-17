@@ -771,6 +771,129 @@ from datetime import datetime, timezone
 import unicodedata
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
+import csv
+import io
+from decimal import Decimal, InvalidOperation
+from datetime import datetime
+import re
+
+class OVDFormatDetector:
+    """Strikte Format-Erkennung. Nur 100% Treffer werden akzeptiert."""
+    @staticmethod
+    def detect(headers: list[str]) -> str:
+        h_set = set(headers)
+        if {"IMO", "BDN_Number", "Fuel_Type", "Mass"}.issubset(h_set):
+            return "BR"
+        if {"Date_UTC", "Time_UTC", "Distance", "Event"}.issubset(h_set):
+            return "LA"
+        raise ValueError(f"OVD_SCHEMA_VIOLATION: Headers {headers} do not match institutional schemas.")
+
+class OVDPackageParser:
+    """
+    Final Fortress-Grade Version.
+    Strikte IMO-Validierung, Cross-File-Check und Null-Toleranz-Politik.
+    """
+    @staticmethod
+    def sanitize_decimal(value: str) -> Decimal:
+        if not value or value.strip() == "":
+            raise ValueError("DATA_GAP: Numeric field is empty. Institutional intake requires explicit values (even '0.0').")
+        clean_val = value.strip()
+        if "," in clean_val:
+            raise ValueError(f"LOCALE_ERROR: '{value}' contains a comma. Use international dot format (1234.56).")
+        try:
+            d_val = Decimal(clean_val)
+            return d_val
+        except InvalidOperation:
+            raise ValueError(f"FORMAT_ERROR: '{value}' is not a valid decimal.")
+
+    @staticmethod
+    def parse(uploaded_files) -> dict:
+        vessel_imo = ""
+        la_fuel_aggregator = {}
+        br_fuel_aggregator = {}
+        all_dates = []
+        total_dist = Decimal("0")
+        
+        # 1. Sammel-Phase mit Identitäts-Check
+        for file in uploaded_files:
+            content = file.getvalue().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(content))
+            if not reader.fieldnames: continue
+            
+            f_type = OVDFormatDetector.detect(reader.fieldnames)
+            
+            for row in reader:
+                # --- STRIKTE IMO VALIDIERUNG ---
+                current_imo = row.get("IMO", "").strip()
+                if current_imo:
+                    # Regex: Muss exakt 7 Ziffern sein
+                    if not re.match(r"^\d{7}$", current_imo):
+                        raise ValueError(f"IMO_POLICY_VIOLATION: '{current_imo}' is not a valid 7-digit IMO number.")
+                    
+                    # Cross-File Consistency Check
+                    if vessel_imo and current_imo != vessel_imo:
+                        raise ValueError(f"IDENTITY_CONFLICT: Package contains multiple IMOs ({vessel_imo} vs {current_imo}).")
+                    vessel_imo = current_imo
+
+                if f_type == "LA":
+                    if row.get("Date_UTC"):
+                        d_str = row["Date_UTC"].strip()
+                        datetime.strptime(d_str, "%Y-%m-%d") 
+                        all_dates.append(d_str)
+                    
+                    if row.get("Distance"):
+                        total_dist += OVDPackageParser.sanitize_decimal(row["Distance"])
+                    
+                    # Roh-Fuel Aggregation (Gateway validiert später gegen ALLOWED_FUELS)
+                    for key, val in row.items():
+                        if key.startswith("Consumption_") and val:
+                            f_code = key.replace("Consumption_", "").upper()
+                            la_fuel_aggregator[f_code] = la_fuel_aggregator.get(f_code, Decimal("0")) + OVDPackageParser.sanitize_decimal(val)
+
+                if f_type == "BR":
+                    if row.get("Fuel_Type") and row.get("Mass"):
+                        f_code = row["Fuel_Type"].upper().strip()
+                        br_fuel_aggregator[f_code] = br_fuel_aggregator.get(f_code, Decimal("0")) + OVDPackageParser.sanitize_decimal(row["Mass"])
+
+        # 2. Institutional Guards (Die "Letzte Meile")
+        if not vessel_imo:
+            raise ValueError("VALIDATION_FAILED: No valid 7-digit IMO found in package.")
+        if not all_dates:
+            raise ValueError("VALIDATION_FAILED: No Date_UTC records found.")
+        
+        # Entscheidung: LA vor BR
+        final_fuel_map = la_fuel_aggregator if la_fuel_aggregator else br_fuel_aggregator
+        
+        if not final_fuel_map:
+            raise ValueError("MISSING_MATERIAL_DATA: No fuel consumption (LA) or bunker data (BR) found in package.")
+        if total_dist <= 0 and la_fuel_aggregator:
+            # Nur Warnung oder Hard Fail? Wir wählen Hard Fail für maximale Strenge im LA.
+            raise ValueError("DISTANCE_POLICY_VIOLATION: Reported voyage distance in LA must be greater than zero.")
+
+        # 3. Deterministisches Sealing
+        sorted_dates = sorted(list(set(all_dates)))
+        start_date = f"{sorted_dates[0]}T00:00:00Z"
+        end_date = f"{sorted_dates[-1]}T23:59:59Z"
+
+        sorted_fuels = []
+        for f_code in sorted(final_fuel_map.keys()):
+            sorted_fuels.append({
+                "code": f_code,
+                "mt": str(final_fuel_map[f_code])
+            })
+
+        return {
+            "vessel": {"imo": vessel_imo},
+            "voyage": {
+                "start_date": start_date,
+                "end_date": end_date,
+                "fuel": sorted_fuels,
+                "dist_nm": str(total_dist),
+                "hours": "0" 
+            },
+            "metadata": {"intake_method": "OVD_PACKAGE_PARSER_V2.3_FORTRESS"}
+        }
+
 class ComplianceGateway:
     """
     Modul 3: Compliance Data Gateway (v0.7.4 - Institutional Grade)
@@ -989,36 +1112,42 @@ with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
     st.info("Status: Listening | Forensic Recipe: v1 | Time: UTC")
     
     st.write("### 📥 Institutional Data Intake (OVD/DCS)")
-    gateway = ComplianceGateway()
-
-    if 'last_seal_success' in st.session_state:
-        st.success(st.session_state['last_seal_success'])
-        if st.button("Confirm and Clear"):
-            del st.session_state['last_seal_success']
-            st.rerun()
     
-    uploaded_file = st.file_uploader("Upload OVD or DCS Dataset", type=['json'])
+    # 1. Dateiupload (Multiple Files für CSV-Pakete)
+    uploaded_files = st.file_uploader(
+        "Upload OVD Package (CSV/TXT/JSON)", 
+        type=['csv', 'txt', 'json'], 
+        accept_multiple_files=True,
+        key="ovd_uploader_main"
+    )
     
-    if uploaded_file is not None:
-        try:
-            raw_data = json.load(uploaded_file)
-            dataset_type = st.radio("Dataset Typ", ["OVD_VOYAGE", "DCS_ANNUAL"], horizontal=True)
-            
-            if st.button("Validate and Seal Data", use_container_width=True, type="primary"):
-                processed_record = gateway.process_intake(raw_data, dataset_type)
+    if uploaded_files:
+        if st.button("Validate and Seal Data", width='stretch', type="primary"):
+            try:
+                # 2. Parsing-Layer (Hier rufen wir unsere neue Klasse auf)
+                # Fall A: Einzelne JSON
+                if len(uploaded_files) == 1 and uploaded_files[0].name.endswith('.json'):
+                    import json
+                    raw_data = json.load(uploaded_files[0])
+                # Fall B: CSV/TXT-Paket von Kristof
+                else:
+                    raw_data = OVDPackageParser.parse(uploaded_files)
                 
-                # --- FORTRESS PERSISTENCE (Decimal-Fix) ---
+                # 3. Gateway-Prozess (Dein bestehendes Gateway)
+                gateway = ComplianceGateway()
+                processed_record = gateway.process_intake(raw_data, "OVD_VOYAGE")
+                
+                # 4. Speichern in der Telemetry-Tabelle
                 with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                    conn.cursor().execute('''
+                    conn.execute('''
                         INSERT INTO telemetry_reports 
                         (report_id, imo, vessel_name, raw_json, canonical_base, engine_input, received_at, receipt_hash, status)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         processed_record['dataset_metadata']['dataset_id'],
                         processed_record['engine_input']['vessel_imo'],
-                        "Uploaded Vessel", 
+                        f"OVD-Package-{processed_record['engine_input']['vessel_imo']}", 
                         json.dumps(raw_data), 
-                        # Hier fügen wir default=str hinzu:
                         json.dumps(processed_record['full_audit_payload']['hash_input'], default=str), 
                         json.dumps(processed_record['engine_input'], default=str), 
                         processed_record['dataset_metadata']['intake_timestamp'],
@@ -1027,10 +1156,11 @@ with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
                     ))
                     conn.commit()
                 
-                st.session_state['last_seal_success'] = f"Dataset successfully sealed. Hash: {processed_record['dataset_metadata']['receipt_hash'][:12]}..."
+                st.success("✅ OVD Package successfully parsed and sealed.")
                 st.rerun()
-        except Exception as e:
-            st.error(f"⚠️ Protocol Violation: {e}")
+                
+            except Exception as e:
+                st.error(f"❌ Intake Error: {str(e)}")
 
     st.write("---")
     st.write("**Recent Activity (Last 5 Events):**")
