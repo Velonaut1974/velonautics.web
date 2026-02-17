@@ -192,6 +192,17 @@ class VelonautLedger:
             "ts_utc": datetime.now(timezone.utc).isoformat()
         }
         return self.add_entry("KEY_ROTATION", payload, 0, old_signer_func)
+    
+    def is_period_sealed(self, reporting_year):
+        """Prüft revisionssicher, ob für das Jahr bereits ein SEAL-Block existiert."""
+        cursor = self.__conn.cursor()
+        # Wir suchen in der Tabelle nach einem Eintrag vom Typ CLOSURE oder PERIOD_SEAL für das Jahr
+        cursor.execute("""
+            SELECT 1 FROM ledger_entries 
+            WHERE (block_type = 'CLOSURE' OR block_type = 'PERIOD_SEAL') 
+            AND reporting_year = ?
+        """, (reporting_year,))
+        return cursor.fetchone() is not None
 
     def verify_integrity(self):
         cursor = self.__conn.cursor()
