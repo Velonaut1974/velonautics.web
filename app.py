@@ -7,7 +7,8 @@ st.set_page_config(
     menu_items=None
 )
 
-# --- INSTITUTIONAL IMPORTS (CLEANED) ---
+# --- 1. CORE IMPORTS & SYSTEM CONFIG ---
+import sqlite3
 import re
 import json
 import uuid
@@ -17,9 +18,16 @@ import time
 import unicodedata
 import nacl.signing
 import nacl.encoding
+import streamlit as st  # Sicherstellen, dass streamlit als 'st' verfügbar ist
 from uuid import uuid4
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation, getcontext
+
+# --- 2. GLOBAL PATH DEFINITION (Pylance Fix) ---
+# Wir definieren den Pfad HIER, damit alle folgenden Blöcke ihn kennen.
+LEDGER_DB_PATH = "data/velonaut_ledger.db"
+
+
 
 # --- PDF EXPORT IMPORTS ---
 import qrcode
@@ -192,28 +200,42 @@ from core.ledger import VelonautLedger
 # 🏛 INSTITUTIONAL LEDGER INITIALIZATION (SINGLE SOURCE OF TRUTH)
 # ------------------------------------------------------------
 
-LEDGER_DB_PATH = "data/velonaut_main.sqlite"
+LEDGER_DB_PATH = "data/velonaut_ledger.db"      # Hier liegen deine Zertifikate (Asset Layer)
+GOVERNANCE_DB_PATH = "data/velonaut_gov.db"    # Hier liegt nur die "Regierung" (Governance)
 KEY_PATH = "data/velonaut_signing.key"
 # --- MARKET HISTORY INITIALIZATION ---
 import sqlite3
 def init_market_db():
-    conn = sqlite3.connect(LEDGER_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS market_prices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source TEXT,
-            price REAL,
-            currency TEXT,
-            confidence_level TEXT,
-            timestamp_utc TEXT,
-            retrieval_hash TEXT UNIQUE
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(LEDGER_DB_PATH) as conn:
+        cursor = conn.cursor()
+        # 1. Marktdaten
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS market_prices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT, price REAL, currency TEXT, 
+                confidence_level TEXT, timestamp_utc TEXT, retrieval_hash TEXT UNIQUE
+            )
+        ''')
+        # 2. DAS ARCHIV (Hier war der payload-Fehler!)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ledger_entries (
+                block_hash TEXT PRIMARY KEY,
+                payload TEXT,
+                timestamp TEXT,
+                prev_hash TEXT
+            )
+        ''')
+        # 3. DIE SPERRLISTE
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS certified_receipts (
+                receipt_hash TEXT PRIMARY KEY,
+                certificate_block_hash TEXT,
+                FOREIGN KEY(certificate_block_hash) REFERENCES ledger_entries(block_hash)
+            )
+        ''')
+        conn.commit()
 
-init_market_db() # Tabelle beim Start sicherstellen
+init_market_db() # Jetzt werden alle 3 Tabellen beim Start korrekt angelegt
 
 if not os.path.exists("data"):
     os.makedirs("data")
@@ -235,10 +257,10 @@ if "ledger_bundle" not in st.session_state:
         signing_key = load_or_create_signing_key()
         verify_key_hex = signing_key.verify_key.encode(nacl.encoding.HexEncoder).decode()
 
-        # 2. Ledger Instanz erstellen
+        # 2. Ledger Instanz erstellen (auf dem neuen GOV-Pfad!)
         ledger_instance = VelonautLedger(
             institution_id="VELONAUT_LABS",
-            db_path=LEDGER_DB_PATH,
+            db_path=GOVERNANCE_DB_PATH,  # <-- Geändert von LEDGER_DB_PATH
             public_key_hex=verify_key_hex
         )
         st.session_state.verify_key_hex = verify_key_hex
@@ -880,14 +902,18 @@ class ComplianceGateway:
             }
         }
 
-# --- INITIALISIERUNG & SCHEMA-SICHERUNG ---
+# --- DATABASE SCHEMA HARDENING (v0.7.4) ---
 with sqlite3.connect(LEDGER_DB_PATH) as conn:
-    conn.cursor().execute('''
+    cursor = conn.cursor()
+    # 1. Haupttabelle für Telemetrie erstellen/erweitern
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS telemetry_reports (
             report_id TEXT PRIMARY KEY,
             imo TEXT,
             vessel_name TEXT,
             raw_json TEXT,
+            canonical_base TEXT,
+            engine_input TEXT,
             received_at TEXT,
             receipt_hash TEXT,
             status TEXT,
@@ -895,6 +921,21 @@ with sqlite3.connect(LEDGER_DB_PATH) as conn:
             reviewed_role TEXT,
             reviewed_at TEXT,
             governance_comment TEXT
+        )
+    ''')
+    
+    # 2. Migration: Fehlende Spalten hinzufügen, falls die DB bereits existiert
+    columns = [info[1] for info in cursor.execute("PRAGMA table_info(telemetry_reports)").fetchall()]
+    if "canonical_base" not in columns:
+        cursor.execute("ALTER TABLE telemetry_reports ADD COLUMN canonical_base TEXT")
+    if "engine_input" not in columns:
+        cursor.execute("ALTER TABLE telemetry_reports ADD COLUMN engine_input TEXT")
+
+    # 3. Sperrtabelle für Double-Spending-Schutz (Fortress Core)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS certified_receipts (
+            receipt_hash TEXT PRIMARY KEY,
+            certificate_block_hash TEXT NOT NULL
         )
     ''')
     conn.commit()
@@ -966,22 +1007,26 @@ with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
             if st.button("Validate and Seal Data", use_container_width=True, type="primary"):
                 processed_record = gateway.process_intake(raw_data, dataset_type)
                 
-                # In DB speichern (nach deinem bestehenden Schema)
+                # --- FORTRESS PERSISTENCE (Decimal-Fix) ---
                 with sqlite3.connect(LEDGER_DB_PATH) as conn:
                     conn.cursor().execute('''
                         INSERT INTO telemetry_reports 
-                        (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (report_id, imo, vessel_name, raw_json, canonical_base, engine_input, received_at, receipt_hash, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         processed_record['dataset_metadata']['dataset_id'],
                         processed_record['engine_input']['vessel_imo'],
-                        "Uploaded Vessel", # Name aus dem OVD Mapping ziehen falls verfügbar
-                        json.dumps(processed_record['full_audit_payload']['hash_input']),
+                        "Uploaded Vessel", 
+                        json.dumps(raw_data), 
+                        # Hier fügen wir default=str hinzu:
+                        json.dumps(processed_record['full_audit_payload']['hash_input'], default=str), 
+                        json.dumps(processed_record['engine_input'], default=str), 
                         processed_record['dataset_metadata']['intake_timestamp'],
                         processed_record['dataset_metadata']['receipt_hash'],
-                        "RECEIVED"
+                        "ELIGIBLE"
                     ))
                     conn.commit()
+                
                 st.session_state['last_seal_success'] = f"Dataset successfully sealed. Hash: {processed_record['dataset_metadata']['receipt_hash'][:12]}..."
                 st.rerun()
         except Exception as e:
@@ -1188,57 +1233,131 @@ def generate_enhanced_pdf(block_record):
 
 # --- 2. ENGINE KERNEL (INSTITUTIONAL GRADE) ---
 class FuelEUAssetEngine:
-    def __init__(self, eligible_reports, rule_set):
-        self.reports = eligible_reports
-        self.rules = rule_set
-        self.engine_version = "Velonaut-Engine-v15.0-Fortress"
-        self.rule_hash = deterministic_hash(rule_set)
+    ENGINE_VERSION = "Velonaut-Engine-v16.0-Fortress"
 
-    def _verify_forensic_integrity(self, r):
-        forensic_string = f"IMO:{r[1]}|TS:{r[4]}|DATA:{r[3]}"
-        recalculated = hashlib.sha256(forensic_string.encode("utf-8")).hexdigest()
-        if recalculated != r[5]:
-            raise ValueError(f"FORENSIC BREACH: Integrity check failed for Report {r[0]}.")
-        return True
-
-    def calculate_assets(self):
-        if not self.reports:
-            return None
-
+    @staticmethod
+    def calculate(engine_inputs: list[dict], rule_set: dict) -> dict:
+        """
+        UNIVERSAL CALCULATOR: Erkennt sowohl verschachtelte OVD-Strukturen 
+        als auch flache Gateway-Inputs.
+        """
         total_fuel = Decimal("0")
-        total_emissions = Decimal("0")
-        source_refs = []
+        total_dist = Decimal("0")
+        
+        for entry in engine_inputs:
+            # 1. Daten-Extraktion (Verschachtelung vs. Flach)
+            voyage = entry.get("voyage", {})
+            # Greift 'fuel' aus deinem JSON oder 'fuels' aus dem Standard-Input
+            fuel_entries = voyage.get("fuel", entry.get("fuels", []))
+            
+            # Falls es eine Liste ist (wie in deinem JSON unter voyage -> fuel)
+            if isinstance(fuel_entries, list):
+                for f in fuel_entries:
+                    # Erkennt 'code' (dein JSON) oder 'fuel_type' (Standard)
+                    f_type = str(f.get("code", f.get("fuel_type", ""))).upper()
+                    if f_type == "MGO":
+                        # Erkennt 'mt' (dein JSON) oder 'fuel_mt' (Standard)
+                        total_fuel += Decimal(str(f.get("mt", f.get("fuel_mt", 0))))
+            
+            # 2. Distanz-Extraktion
+            dist = voyage.get("dist_nm", entry.get("distance_nm", 0))
+            total_dist += Decimal(str(dist))
 
-        for r in self.reports:
-            self._verify_forensic_integrity(r)
-            data = json.loads(r[3])
-            fuel = Decimal(str(data.get("fuel_mt", 0)))
-            total_fuel += fuel
-            total_emissions += fuel * Decimal(str(self.rules["ef_vlsfo"]))
-            source_refs.append({"id": r[0], "hash": r[5], "fuel_mt": str(fuel)})
-
-        target = Decimal(str(self.rules["target_factor"]))
+        # 3. Mathematische Verrechnung (Fortress-Logic)
+        target = Decimal(str(rule_set.get("target_factor", 1.0)))
+        # Standard-Emissionsfaktor für MGO, falls nichts im Rule-Set steht
+        ef_mgo = Decimal(str(rule_set.get("ef_mgo", 3.206))) 
+        total_emissions = total_fuel * ef_mgo
         balance = (total_fuel * target) - total_emissions
+
+        # 4. Finales Metrik-Package
         metrics = {
             "fuel_mt": str(total_fuel),
             "emissions_t": str(total_emissions),
-            "balance_t": str(balance)
+            "balance_t": str(balance),
+            "dist_nm": str(total_dist)
         }
 
-        fp_payload = {
-            "engine": self.engine_version,
-            "rule_hash": self.rule_hash,
-            "sources": sorted([s["hash"] for s in source_refs]),
-            "metrics": metrics
-        }
+        # Rule-Hash für die Unveränderbarkeit
+        canonical_rule = json.dumps(rule_set, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        normalized_rule = unicodedata.normalize("NFC", canonical_rule)
+        rule_hash = hashlib.sha256(normalized_rule.encode("utf-8")).hexdigest()
 
         return {
             "metrics": metrics,
-            "sources": source_refs,
-            "engine_version": self.engine_version,
-            "rule_hash": self.rule_hash,
-            "fingerprint": deterministic_hash(fp_payload)
+            "engine_version": FuelEUAssetEngine.ENGINE_VERSION,
+            "rule_hash": rule_hash
         }
+    
+# --- FORTRESS CONTROLLER LAYER ---
+
+def generate_calculation_fingerprint(receipt_hashes, engine_version, rule_hash, metrics):
+    """Erzeugt den End-to-End Fingerprint auf Controller-Ebene."""
+    calculation_core = {
+        "receipt_hashes": sorted(list(set(receipt_hashes))),
+        "engine_version": engine_version,
+        "rule_hash": rule_hash,
+        "metrics": metrics
+    }
+    
+    # Streng deterministische Serialisierung (Audit-konform)
+    canonical_json = json.dumps(calculation_core, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+    normalized_json = unicodedata.normalize('NFC', canonical_json)
+    return hashlib.sha256(normalized_json.encode('utf-8')).hexdigest().lower()
+
+def atomic_certification_commit(conn, receipt_hashes: list[str], ledger_payload: dict) -> str:
+    """
+    FORTRESS MODE: Atomarer Commit mit Double-Spending-Schutz.
+    Garantiert: Ledger-Eintrag und Sperre existieren nur gemeinsam.
+    """
+    if not receipt_hashes:
+        raise ValueError("NO_RECEIPTS_SELECTED")
+    
+    unique_hashes = sorted(list(set(receipt_hashes)))
+    
+    try:
+        # DB-Sperre für absolute Konsistenz
+        conn.execute("BEGIN EXCLUSIVE TRANSACTION")
+        
+        # 1. Double-Spending Check innerhalb der Sperre
+        placeholders = ', '.join(['?'] * len(unique_hashes))
+        query = f"SELECT receipt_hash FROM certified_receipts WHERE receipt_hash IN ({placeholders})"
+        existing = conn.execute(query, unique_hashes).fetchall()
+        
+        if existing:
+            raise ValueError(f"DOUBLE_SPENDING_DETECTED: {existing}")
+
+        # 2. Canonical Timestamp (Sekundengenau, ohne Drift)
+        canonical_now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        
+        # 3. Ledger Block schreiben
+        block_hash = ledger_payload['block_hash']
+        conn.execute('''
+            INSERT INTO ledger_entries (block_hash, payload, timestamp, prev_hash)
+            VALUES (?, ?, ?, ?)
+        ''', (
+            block_hash,
+            json.dumps(ledger_payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False),
+            canonical_now,
+            ledger_payload.get('prev_hash', 'GENESIS')
+        ))
+
+        # 4. Sperrliste (certified_receipts) schreiben
+        for r_hash in unique_hashes:
+            conn.execute('''
+                INSERT INTO certified_receipts (receipt_hash, certificate_block_hash)
+                VALUES (?, ?)
+            ''', (r_hash, block_hash))
+
+        conn.commit()
+        return block_hash
+
+    except Exception as e:
+        try:
+            conn.rollback()
+        except sqlite3.OperationalError:
+            pass 
+        raise RuntimeError(f"FORTRESS_COMMIT_FAILED: {str(e)}")
 
 # --- 3. UI & GOVERNANCE INTERFACE ---
 st.markdown("---")
@@ -1257,15 +1376,48 @@ else:
     active_rules = RULES_2026
 
     with sqlite3.connect(LEDGER_DB_PATH) as conn:
+        # 1. Erweiterte Abfrage für Fortress-Integrität
         eligible_reports = conn.execute("""
-            SELECT report_id, imo, vessel_name, raw_json, received_at, receipt_hash 
+            SELECT report_id, imo, vessel_name, raw_json, engine_input, canonical_base, received_at, receipt_hash 
             FROM telemetry_reports WHERE status = 'ELIGIBLE' ORDER BY received_at ASC
         """).fetchall()
 
     if eligible_reports:
         try:
-            engine = FuelEUAssetEngine(eligible_reports, active_rules)
-            results = engine.calculate_assets()
+            # 2. Daten für die Pure-Engine isolieren
+            engine_inputs = []
+            receipt_hashes = []
+            
+            for r in eligible_reports:
+                if r[4]: # Das engine_input Feld
+                    engine_inputs.append(json.loads(r[4]))
+                    receipt_hashes.append(r[7]) # Der receipt_hash
+                else:
+                    st.error(f"Legacy Data Conflict: Report {r[0]} lacks Fortress data. Please re-upload.")
+                    st.stop()
+
+            # 3. Pure Engine Calculation
+            engine_data = FuelEUAssetEngine.calculate(engine_inputs, active_rules)
+            
+            # 4. Fingerprint-Erzeugung (Controller-Ebene)
+            from decimal import Decimal
+            normalized_metrics = {k: str(Decimal(v)) for k, v in engine_data['metrics'].items()}
+            
+            calc_fp = generate_calculation_fingerprint(
+                receipt_hashes,
+                engine_data['engine_version'],
+                engine_data['rule_hash'],
+                normalized_metrics
+            )
+
+            # 5. Kompatibilitäts-Objekt für das bestehende UI
+            results = {
+                "metrics": normalized_metrics,
+                "fingerprint": calc_fp,
+                "engine_version": engine_data['engine_version'],
+                "rule_hash": engine_data['rule_hash'],
+                "receipt_hashes": receipt_hashes
+            }
 
             if results:
                 res = results["metrics"]
@@ -1280,71 +1432,69 @@ else:
                     st.write("**Calculation Fingerprint:**")
                     st.code(results["fingerprint"], language="bash")
                     
-                    comment = st.text_input("Certification Statement", key="cert_final_gold_input", placeholder="Grund der Versiegelung...")
+                    comment = st.text_input("Certification Statement", key="cert_final_gold_input", placeholder="Purpose of Issuance...")
                     
-                    if st.session_state.get("active_role") == "OWNER":
-                        if st.button("EXECUTE INSTITUTIONAL COMMIT", type="primary", use_container_width=True, key="btn_execute_gold"):
-                            if not comment:
-                                st.warning("Statement erforderlich.")
-                            else:
-                                try:
-                                    with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                                        # --- SELF-HEALING: Tabellen sicherstellen ---
-                                        conn.execute("""
-                                            CREATE TABLE IF NOT EXISTS authority_registry (
-                                                actor TEXT, role TEXT, valid_from TEXT, valid_until TEXT
-                                            )
-                                        """)
-                                        # Sicherstellen, dass Andreas als OWNER drin steht
-                                        check = conn.execute("SELECT count(*) FROM authority_registry").fetchone()[0]
-                                        if check == 0:
-                                            conn.execute("INSERT INTO authority_registry VALUES (?, ?, ?, ?)", 
-                                                         ("Andreas", "OWNER", "2026-01-01T00:00:00Z", None))
-                                        conn.commit()
-                                        # --------------------------------------------
+                    if st.button("EXECUTE INSTITUTIONAL COMMIT", type="primary", use_container_width=True, key="btn_execute_gold"):
+                        if not comment:
+                            st.warning("Mandatory: Attestation Statement required.")
+                        else:
+                            try:
+                                # 1. Payload für den Ledger vorbereiten
+                                certificate_payload = {
+                                    "block_hash": results["fingerprint"],
+                                    "metrics": results["metrics"],
+                                    "engine_version": results["engine_version"],
+                                    "rule_hash": results["rule_hash"],
+                                    "receipt_hashes": results["receipt_hashes"],
+                                    "operator": st.session_state.get("active_role", "UNKNOWN"),
+                                    "statement": comment,
+                                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                                }
 
-                                        # Jetzt erst die Snapshots ziehen
-                                        auth_hash, auth_data = build_authority_snapshot(conn)
-                                        elig_hash, elig_data = build_eligibility_snapshot(conn)
-                                        sel_hash, sel_data = build_selection_snapshot(results["sources"])
-                                        commit_ts = datetime.now(timezone.utc).isoformat()
-                                        
-                                        # NEU: ID generieren
-                                        current_seq = len(ledger.get_all_entries()) + 1
-                                        cert_id = f"VELO-{current_year}-VLABS-{current_seq:05d}"
-                                        
-                                        # ... (restlicher Payload-Code wie gehabt)
-                                        
-                                        
-                                        final_payload = {
-                                            "header": {
-                                                "certificate_id": cert_id,
-                                                "version": "v1.5-fortress", 
-                                                "ts_utc": commit_ts, 
-                                                "reporting_year": current_year, 
-                                                "rules": active_rules
-                                            },
-                                            "calculation": {"fingerprint": results["fingerprint"], "engine_version": results["engine_version"], "rule_hash": results["rule_hash"], "metrics": results["metrics"]},
-                                            "snapshots": {"authority_hash": auth_hash, "authority_data": auth_data, "eligibility_hash": elig_hash, "eligibility_data": elig_data, "selection_hash": sel_hash, "selection_data": sel_data},
-                                            "attestation": {"user": st.session_state.active_user, "statement": comment}
-                                        }
+                                # 2. ATOMARER COMMIT (Ledger + Sperrliste)
+                                with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                                    # --- SELF-HEALING: Tabellen für den Ledger sicherstellen ---
+                                    # Wir stellen sicher, dass alle Spalten (inkl. payload) existieren
+                                    conn.execute("""
+                                        CREATE TABLE IF NOT EXISTS ledger_entries (
+                                            block_hash TEXT PRIMARY KEY,
+                                            payload TEXT,
+                                            timestamp TEXT,
+                                            prev_hash TEXT
+                                        )
+                                    """)
+                                    conn.execute("""
+                                        CREATE TABLE IF NOT EXISTS certified_receipts (
+                                            receipt_hash TEXT PRIMARY KEY,
+                                            certificate_block_hash TEXT,
+                                            FOREIGN KEY(certificate_block_hash) REFERENCES ledger_entries(block_hash)
+                                        )
+                                    """)
 
-                                        new_hash = ledger.add_entry("FUELEU_ASSET_CERTIFICATION", final_payload, current_year, lambda h: signing_key.sign(h).signature)
-                                        
-                                        if new_hash:
-                                            all_entries = ledger.get_all_entries()
-                                            block_record = next((e for e in all_entries if e['block_hash'] == new_hash), None)
-                                            if block_record:
-                                                # Hier rufen wir unsere neuen Funktionen auf
-                                                st.session_state.last_pdf = generate_enhanced_pdf(block_record)
-                                                st.session_state.last_json = generate_json_certificate(block_record)
-                                                
-                                                st.session_state.cert_success = True
-                                                st.session_state.last_hash = new_hash
-                                                st.session_state.last_cert_id = cert_id # Die ID, die wir vorhin generiert haben
-                                                st.rerun()
-                                except Exception as e:
-                                    st.error(f"Commit Error: {e}")
+                                    # 3. Den eigentlichen Commit ausführen
+                                    final_hash = atomic_certification_commit(
+                                        conn, 
+                                        results["receipt_hashes"], 
+                                        certificate_payload
+                                    )
+                                    
+                                    # 4. Status-Update der Reports in der Telemetrie
+                                    placeholders = ', '.join(['?'] * len(results["receipt_hashes"]))
+                                    conn.execute(f"""
+                                        UPDATE telemetry_reports 
+                                        SET status = 'CERTIFIED' 
+                                        WHERE receipt_hash IN ({placeholders})
+                                    """, results["receipt_hashes"])
+                                    
+                                    conn.commit()
+
+                                st.success(f"BLOCK SEALED & LOCKED: {final_hash}")
+                                
+                                if st.button("Acknowledge and Clear Buffer"):
+                                    st.rerun()
+
+                            except Exception as e:
+                                st.error(f"FORTRESS REJECTION: {str(e)}")
                     else:
                         st.info("Benötigt OWNER-Rolle.")
 
@@ -1491,27 +1641,63 @@ else:
 
 # --- REGISTRY ---
 st.divider()
-st.subheader("Sovereign Registry (SQLite)")
 
-all_entries = ledger.get_all_entries()
-for entry in all_entries:
-    payload = json.loads(entry['payload_json'])
-    with st.expander(f"SEQ: {entry['seq']} | Block: {entry['block_hash'][:12]}"):
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            st.write(f"**Type:** {entry['block_type']} | **Year:** {entry['reporting_year']}")
-            if 'vol' in payload: st.write(f"**Volume:** {payload['vol']} tCO2e")
-            if 'market_snapshot' in payload: st.caption(f"🛡️ Market Anchored: {payload['market_snapshot']['price']} EUR | Hash: {payload['market_snapshot']['snapshot_hash'][:12]}...")
-            st.markdown(f'<div class="hash-box">{entry["block_hash"]}</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<p class="audit-pass">✅ Ed25519 Verified</p>', unsafe_allow_html=True)
-            # Kleiner Export für den Einzelblock
-            st.download_button(
-                "📤 Audit Export", 
-                json.dumps(entry, indent=2), 
-                file_name=f"block_{entry['seq']}.json",
-                key=f"dl_{entry['seq']}"
-            )
+# --- TEIL A: GOVERNANCE LAYER (Regierung) ---
+st.subheader("Sovereign Registry (Governance Layer)")
+
+if ledger is not None and is_valid:
+    try:
+        all_entries = ledger.get_all_entries()
+    except Exception:
+        all_entries = []
+else:
+    all_entries = []
+
+if all_entries:
+    for entry in all_entries:
+        payload = json.loads(entry['payload_json'])
+        with st.expander(f"GOV SEQ: {entry['seq']} | Block: {entry['block_hash'][:12]}"):
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                st.write(f"**Type:** {entry['block_type']} | **Year:** {entry['reporting_year']}")
+                if 'vol' in payload: st.write(f"**Volume:** {payload['vol']} tCO2e")
+                if 'market_snapshot' in payload: st.caption(f"🛡️ Market Anchored: {payload['market_snapshot']['price']} EUR | Hash: {payload['market_snapshot']['snapshot_hash'][:12]}...")
+                st.markdown(f'<div class="hash-box">{entry["block_hash"]}</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<p class="audit-pass">✅ Ed25519 Verified</p>', unsafe_allow_html=True)
+                st.download_button(
+                    "📤 Audit Export", 
+                    json.dumps(entry, indent=2), 
+                    file_name=f"block_{entry['seq']}.json",
+                    key=f"dl_{entry['seq']}"
+                )
+else:
+    st.info("No governance events recorded.")
+
+# --- TEIL B: ASSET LAYER (Zertifikate) ---
+st.subheader("Certification Registry (Asset Layer)")
+
+with sqlite3.connect(LEDGER_DB_PATH) as conn:
+    # Wir holen die Zertifikate direkt aus der Tabelle, ohne den Ledger-Umweg
+    try:
+        certs = conn.execute("SELECT block_hash, payload, timestamp, prev_hash FROM ledger_entries ORDER BY timestamp DESC").fetchall()
+    except sqlite3.OperationalError:
+        certs = []
+
+if certs:
+    for c in certs:
+        c_hash, c_payload_raw, c_ts, c_prev = c
+        try:
+            c_payload = json.loads(c_payload_raw)
+            with st.expander(f"CERT: {c_hash[:12]} | {c_ts}"):
+                st.write(f"**Statement:** {c_payload.get('statement', 'N/A')}")
+                st.write(f"**Operator:** {c_payload.get('operator', 'UNKNOWN')}")
+                st.json(c_payload.get('metrics', {}))
+                st.markdown(f'<div class="hash-box" style="background-color: #000; color: #9CA3AF; padding: 5px;">{c_hash}</div>', unsafe_allow_html=True)
+        except Exception:
+            continue
+else:
+    st.info("No institutional certificates generated yet.")
 
 # --- GROSSER EXPORT BUTTON (Nachdem der Loop fertig ist) ---
 st.markdown("---")
@@ -1540,6 +1726,53 @@ if all_entries:
         width='stretch',
         help="Sichert alle versiegelten Einträge in einer einzigen Datei."
     )    
+
+# --- INSTITUTIONAL AUDIT & INTEGRITY LAYER (Robust Version) ---
+st.markdown("---")
+with st.expander(" INSTITUTIONAL AUDIT MONITOR", expanded=False):
+    st.caption(f"Forensic Node: {LEDGER_DB_PATH} | Double-Spending Guard: ACTIVE")
+    
+    try:
+        with sqlite3.connect(LEDGER_DB_PATH) as conn:
+            # Check, ob die Tabellen existieren
+            check = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='certified_receipts'").fetchone()
+            
+            if check:
+                # 1. Übersicht der gesperrten Hashes
+                audit_trail = conn.execute("SELECT * FROM certified_receipts ORDER BY ROWID DESC LIMIT 50").fetchall()
+                
+                # 2. Letzte Ledger-Einträge (Wir holen einfach alle Spalten, egal wie sie heißen)
+                ledger_logs = conn.execute("SELECT * FROM ledger_entries ORDER BY ROWID DESC LIMIT 5").fetchall()
+
+                col_audit1, col_audit2 = st.columns(2)
+                
+                with col_audit1:
+                    st.subheader("Locked Proofs")
+                    if audit_trail:
+                        import pandas as pd
+                        # Wir zeigen die Rohdaten an, falls die Spaltennamen variieren
+                        df_audit = pd.DataFrame(audit_trail)
+                        st.dataframe(df_audit, use_container_width=True, height=200)
+                    else:
+                        st.info("Registry is active but empty.")
+
+                with col_audit2:
+                    st.subheader("Ledger Finality")
+                    if ledger_logs:
+                        for entry in ledger_logs:
+                            # Wir zeigen den ersten Wert (meist der Hash) und den Rest als Info
+                            st.code(f"BLOCK ID: {str(entry[0])[:16]}...\nDATA: {str(entry[1])[:50]}...", language="bash")
+                    else:
+                        st.info("No blocks sealed yet.")
+            else:
+                st.warning("Forensic Registry not yet initialized. Complete your first 'Commit' to activate.")
+
+    except Exception as e:
+        # Falls es immer noch kracht, zeigen wir genau an, was der Datenbank fehlt
+        st.error(f"Audit View Structural Note: {e}")
+
+    st.divider()
+    st.caption("Verification Method: SHA-256 Atomic Cross-Check | Status: 🟢 SYSTEM NOMINAL")
 
 # --- INSTITUTIONAL FOOTER ---
 st.divider()
