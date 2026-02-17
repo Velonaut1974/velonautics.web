@@ -11,7 +11,7 @@
                 "energy_mj": 1250000.0,
                 "ghg_intensity": 91.6,
                 "eu_scope_factor": 1.0,
-                "state": "RAW"
+                "state": "LOCKED"
             },
             {
                 "id": "EV-2026-XP-02",
@@ -35,13 +35,13 @@
                 "energy_mj": 2800000.0,
                 "ghg_intensity": 88.0,
                 "eu_scope_factor": 0.5,
-                "state": "RAW"
+                "state": "LOCKED"
             }
         ]
     },
     {
         "id": "IMO-9214567",
-        "name": "Essberger Tribute",
+        "name": "Cap San Diego",
         "vessel_type": "Chemical Tanker",
         "dwt": 13500,
         "events": [
