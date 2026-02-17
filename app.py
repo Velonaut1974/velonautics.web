@@ -1,31 +1,35 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Velonaut | Institutional Ledger v0.6.6",
+    page_title="Velonaut | Institutional Ledger v0.7.4",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
 
-# Erst danach folgen alle anderen Imports (json, uuid, nacl, etc.)
-
+# --- INSTITUTIONAL IMPORTS (CLEANED) ---
+import re
 import json
 import uuid
 import hashlib
 import os
+import time
+import unicodedata
 import nacl.signing
 import nacl.encoding
-from decimal import Decimal, getcontext
+from uuid import uuid4
 from datetime import datetime, timezone
-import time
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation, getcontext
 
 # --- PDF EXPORT IMPORTS ---
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+import qrcode
+import io
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4
-import io
 
 # --- PDF GENERATOR FUNKTION ---
 def generate_asset_pdf_from_block(block_record):
@@ -742,6 +746,140 @@ import sqlite3
 import random
 from datetime import datetime, timezone
 
+import unicodedata
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+
+class ComplianceGateway:
+    """
+    Modul 3: Compliance Data Gateway (v0.7.4 - Institutional Grade)
+    Implementiert die finale ProtocolDecimal-Formel und erzwingt 
+    Cross-Language-Determinismus.
+    """
+    
+    TIMESTAMP_REGEX = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+    HASH_64_REGEX = r"^[a-f0-9]{64}$"
+    ALLOWED_FUELS = {"HFO", "LFO", "MGO", "LNG", "LPG", "AMMONIA", "METHANOL", "HYDROGEN", "BIO_FUEL", "OTHER"}
+
+    @staticmethod
+    def protocol_decimal_string(value, precision=3):
+        try:
+            d = Decimal(str(value))
+            q = Decimal("0." + "0"*(precision-1) + "1")
+            d_q = d.quantize(q, rounding=ROUND_HALF_UP)
+            s = format(d_q, 'f')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
+            return s
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError(f"Protocol-Decimal-Error: '{value}' is not a valid number.")
+
+    @staticmethod
+    def validate_timestamp(ts_string):
+        if not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", ts_string):
+            raise ValueError(f"Format-Error: {ts_string}. Expected YYYY-MM-DDTHH:MM:SSZ")
+        try:
+            datetime.strptime(ts_string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError as e:
+            raise ValueError(f"Logical Time-Error: {str(e)}")
+        return ts_string
+
+    def process_intake(self, raw_payload, dataset_type="OVD_VOYAGE"):
+        if dataset_type not in ["OVD_VOYAGE", "DCS_ANNUAL"]:
+            raise ValueError(f"Unsupported Dataset Type: {dataset_type}")
+
+        vessel_imo = str(raw_payload.get('vessel', {}).get('imo', ''))
+        if not re.match(r"^\d{7}$", vessel_imo):
+            raise ValueError(f"IMO-Policy-Violation: '{vessel_imo}' must be exactly 7 digits.")
+
+        start_date = self.validate_timestamp(raw_payload.get('voyage', {}).get('start_date', ''))
+        end_date = self.validate_timestamp(raw_payload.get('voyage', {}).get('end_date', ''))
+
+        raw_fuels = raw_payload.get('voyage', {}).get('fuel', [])
+        if not raw_fuels: raise ValueError("Data-Error: No fuel entries found.")
+
+        fuels_map = {}
+        for fuel in raw_fuels:
+            f_type = str(fuel.get('code', '')).upper().strip()
+            if f_type not in self.ALLOWED_FUELS:
+                raise ValueError(f"Fuel-Error: Unauthorized type '{f_type}'.")
+            
+            f_mt = Decimal(str(fuel.get('mt')))
+            f_desc = str(fuel.get('fuel_other_description', '')).strip() if f_type == "OTHER" else ""
+            
+            if f_type == "OTHER" and len(f_desc) < 5:
+                raise ValueError("Governance-Error: 'OTHER' requires fuel_other_description.")
+
+            agg_key = (f_type, f_desc)
+            fuels_map[agg_key] = fuels_map.get(agg_key, Decimal('0')) + f_mt
+
+        fuels_sorted = []
+        for (f_type, f_desc), total_mt in sorted(fuels_map.items()):
+            fuels_sorted.append({
+                "t": f_type,
+                "m": self.protocol_decimal_string(total_mt),
+                "d": f_desc
+            })
+
+        dist_str = self.protocol_decimal_string(raw_payload.get('voyage', {}).get('dist_nm'))
+        time_str = self.protocol_decimal_string(raw_payload.get('voyage', {}).get('hours'))
+
+        verification_ctx = None
+        if dataset_type == "DCS_ANNUAL":
+            ctx = raw_payload.get('verification_context', {})
+            v_soc_date = self.validate_timestamp(ctx.get('soc_issue_date', ''))
+            v_flag = str(ctx.get('flag_state', '')).strip().upper()
+            v_ref = str(ctx.get('verification_reference', '')).strip()
+            v_name = str(ctx.get('verifier', '')).strip()
+            
+            if not all([v_ref, v_name, len(v_flag) == 2]):
+                raise ValueError("DCS-Error: Incomplete Verification Context.")
+
+            ext_hash = ctx.get('external_cert_hash', '').lower().strip() if ctx.get('external_cert_hash') else None
+            if ext_hash and not re.match(self.HASH_64_REGEX, ext_hash):
+                raise ValueError("DCS-Hash-Error: External hash must be 64-char hex.")
+
+            verification_ctx = {
+                "verifier_name": v_name, "verification_reference": v_ref,
+                "flag_state": v_flag, "soc_issue_date": v_soc_date, "external_cert_hash": ext_hash
+            }
+
+        canonical_base = {
+            "vessel_imo": vessel_imo,
+            "period": {"start": start_date, "end": end_date},
+            "fuels": fuels_sorted,
+            "metrics": {"dist": dist_str, "time": time_str},
+            "type": dataset_type
+        }
+        if verification_ctx: canonical_base["verification"] = verification_ctx
+
+        canonical_json = json.dumps(canonical_base, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+        normalized_json = unicodedata.normalize('NFC', canonical_json)
+        receipt_hash = hashlib.sha256(normalized_json.encode('utf-8')).hexdigest().lower()
+
+        # Engine Input für die Kompatibilität mit M4/M5 wiederherstellen
+        engine_input = {
+            "vessel_imo": vessel_imo,
+            "reporting_period": {"start": start_date, "end": end_date},
+            "fuels": [{"fuel_type": f["t"], "fuel_mt": Decimal(f["m"])} for f in fuels_sorted],
+            "distance_nm": Decimal(dist_str),
+            "hours_underway": Decimal(time_str)
+        }
+
+        return {
+            "dataset_metadata": {
+                "dataset_type": dataset_type,
+                "receipt_hash": receipt_hash,
+                "schema_version": "1.1.4",
+                "intake_timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "dataset_id": str(uuid4())
+            },
+            "engine_input": engine_input,
+            "full_audit_payload": {
+                "raw_data": raw_payload,
+                "hash_input": canonical_base
+            }
+        }
+
 # --- INITIALISIERUNG & SCHEMA-SICHERUNG ---
 with sqlite3.connect(LEDGER_DB_PATH) as conn:
     conn.cursor().execute('''
@@ -809,24 +947,45 @@ st.caption("Institutional Intake Layer | Forensic Mode: ENABLED | Atomic State C
 with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
     st.info("Status: Listening | Forensic Recipe: v1 | Time: UTC")
     
-    st.write("### 🛰️ Telemetry Simulator")
-    v_col, b_col = st.columns([2, 1])
+    st.write("### 📥 Institutional Data Intake (OVD/DCS)")
+    gateway = ComplianceGateway()
+
+    if 'last_seal_success' in st.session_state:
+        st.success(st.session_state['last_seal_success'])
+        if st.button("Confirm and Clear"):
+            del st.session_state['last_seal_success']
+            st.rerun()
     
-    vessel_options = [
-        ("MS Velonaut Explorer", "9876543"),
-        ("Cap San Diego", "9214567"),
-        ("Aframax Orion", "9432100")
-    ]
+    uploaded_file = st.file_uploader("Upload OVD or DCS Dataset", type=['json'])
     
-    with v_col:
-        v_sim = st.selectbox("Select Vessel", vessel_options, format_func=lambda x: x[0], key="sim_sel_m3")
-    with b_col:
-        st.write(" ") # Spacer
-        if st.button("📡 Send Noon Report", use_container_width=True):
-            new_id = simulate_inbound_report(v_sim[0], v_sim[1])
-            if new_id:
-                st.success(f"REPORT RECEIVED: {new_id}")
+    if uploaded_file is not None:
+        try:
+            raw_data = json.load(uploaded_file)
+            dataset_type = st.radio("Dataset Typ", ["OVD_VOYAGE", "DCS_ANNUAL"], horizontal=True)
+            
+            if st.button("Validate and Seal Data", use_container_width=True, type="primary"):
+                processed_record = gateway.process_intake(raw_data, dataset_type)
+                
+                # In DB speichern (nach deinem bestehenden Schema)
+                with sqlite3.connect(LEDGER_DB_PATH) as conn:
+                    conn.cursor().execute('''
+                        INSERT INTO telemetry_reports 
+                        (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        processed_record['dataset_metadata']['dataset_id'],
+                        processed_record['engine_input']['vessel_imo'],
+                        "Uploaded Vessel", # Name aus dem OVD Mapping ziehen falls verfügbar
+                        json.dumps(processed_record['full_audit_payload']['hash_input']),
+                        processed_record['dataset_metadata']['intake_timestamp'],
+                        processed_record['dataset_metadata']['receipt_hash'],
+                        "RECEIVED"
+                    ))
+                    conn.commit()
+                st.session_state['last_seal_success'] = f"Dataset successfully sealed. Hash: {processed_record['dataset_metadata']['receipt_hash'][:12]}..."
                 st.rerun()
+        except Exception as e:
+            st.error(f"⚠️ Protocol Violation: {e}")
 
     st.write("---")
     st.write("**Recent Activity (Last 5 Events):**")
@@ -969,6 +1128,64 @@ def build_authority_snapshot(conn):
     snapshot = [{"actor": r[0], "role": r[1], "valid_from": r[2], "valid_until": r[3]} for r in rows]
     return deterministic_hash(snapshot), snapshot
 
+def generate_json_certificate(block_record):
+    """Erzeugt den digitalen JSON-Zwilling mit flachen Metriken für Banken."""
+    payload = json.loads(block_record["payload_json"])
+    cert_id = payload["header"].get("certificate_id", "N/A")
+    cert_data = {
+        "certificate_id": cert_id,
+        "metrics_summary": payload["calculation"]["metrics"],
+        "ledger_proof": {
+            "block_hash": block_record["block_hash"],
+            "signature": block_record["signature"],
+            "public_key": ledger.get_genesis_public_key()
+        },
+        "full_audit_payload": payload
+    }
+    return json.dumps(cert_data, indent=4)
+
+def generate_enhanced_pdf(block_record):
+    """Erzeugt das institutionelle PDF mit QR-Code und Replay-Infos."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    payload = json.loads(block_record["payload_json"])
+    cert_id = payload["header"].get("certificate_id", "N/A")
+    
+    elements.append(Paragraph("INSTITUTIONAL ASSET CERTIFICATE", styles["Heading1"]))
+    elements.append(Paragraph(f"Certificate ID: {cert_id}", styles["Heading2"]))
+    elements.append(Spacer(1, 1*cm))
+
+    # QR Code Generierung
+    qr = qrcode.QRCode(version=None, box_size=10, border=4)
+    qr.add_data(f"VELO_VERIFY|{cert_id}|{block_record['block_hash']}")
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="black", back_color="white")
+    qr_buffer = io.BytesIO()
+    img_qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    elements.append(Image(qr_buffer, width=3*cm, height=3*cm))
+    elements.append(Spacer(1, 1*cm))
+
+    # Metriken-Tabelle
+    m = payload["calculation"]["metrics"]
+    data = [
+        ["Metric Description", "Verified Value"],
+        ["Reporting Year", str(block_record["reporting_year"])],
+        ["Verified Fuel", f"{m['fuel_mt']} mt"],
+        ["Compliance Balance", f"{m['balance_t']} t"],
+        ["Block Hash (Short)", block_record["block_hash"][:32] + "..."]
+    ]
+    t = Table(data, colWidths=[7*cm, 9*cm])
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke)]))
+    elements.append(t)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
 # --- 2. ENGINE KERNEL (INSTITUTIONAL GRADE) ---
 class FuelEUAssetEngine:
     def __init__(self, eligible_reports, rule_set):
@@ -1092,10 +1309,21 @@ else:
                                         sel_hash, sel_data = build_selection_snapshot(results["sources"])
                                         commit_ts = datetime.now(timezone.utc).isoformat()
                                         
+                                        # NEU: ID generieren
+                                        current_seq = len(ledger.get_all_entries()) + 1
+                                        cert_id = f"VELO-{current_year}-VLABS-{current_seq:05d}"
+                                        
                                         # ... (restlicher Payload-Code wie gehabt)
                                         
+                                        
                                         final_payload = {
-                                            "header": {"version": "v1.5-fortress", "ts_utc": commit_ts, "reporting_year": current_year, "rules": active_rules},
+                                            "header": {
+                                                "certificate_id": cert_id,
+                                                "version": "v1.5-fortress", 
+                                                "ts_utc": commit_ts, 
+                                                "reporting_year": current_year, 
+                                                "rules": active_rules
+                                            },
                                             "calculation": {"fingerprint": results["fingerprint"], "engine_version": results["engine_version"], "rule_hash": results["rule_hash"], "metrics": results["metrics"]},
                                             "snapshots": {"authority_hash": auth_hash, "authority_data": auth_data, "eligibility_hash": elig_hash, "eligibility_data": elig_data, "selection_hash": sel_hash, "selection_data": sel_data},
                                             "attestation": {"user": st.session_state.active_user, "statement": comment}
@@ -1107,9 +1335,13 @@ else:
                                             all_entries = ledger.get_all_entries()
                                             block_record = next((e for e in all_entries if e['block_hash'] == new_hash), None)
                                             if block_record:
-                                                st.session_state.last_pdf = generate_asset_pdf_from_block(block_record)
+                                                # Hier rufen wir unsere neuen Funktionen auf
+                                                st.session_state.last_pdf = generate_enhanced_pdf(block_record)
+                                                st.session_state.last_json = generate_json_certificate(block_record)
+                                                
                                                 st.session_state.cert_success = True
                                                 st.session_state.last_hash = new_hash
+                                                st.session_state.last_cert_id = cert_id # Die ID, die wir vorhin generiert haben
                                                 st.rerun()
                                 except Exception as e:
                                     st.error(f"Commit Error: {e}")
@@ -1119,14 +1351,25 @@ else:
                 with tab_lab:
                     st.info("Forensic Replay Engine aktiv.")
                     if st.session_state.get("cert_success"):
-                        st.success(f"✅ SEALED: `{st.session_state.last_hash[:16]}`")
-                        st.download_button(
-                            label="📥 Download Official Asset Certificate (PDF)",
-                            data=st.session_state.last_pdf,
-                            file_name=f"Velonaut_Cert_{current_year}.pdf",
-                            mime="application/pdf",
-                            key="dl_btn_gold_final"
-                        )
+                        st.success(f"✅ INSTITUTIONAL ASSET GENERATED: `{st.session_state.last_cert_id}`")
+                        
+                        col_pdf, col_json = st.columns(2)
+                        with col_pdf:
+                            st.download_button(
+                                label="📥 Download Certificate (PDF)",
+                                data=st.session_state.last_pdf,
+                                file_name=f"{st.session_state.last_cert_id}.pdf",
+                                mime="application/pdf",
+                                key="dl_btn_pdf_final"
+                            )
+                        with col_json:
+                            st.download_button(
+                                label="💾 Download ERP-Data (JSON)",
+                                data=st.session_state.last_json,
+                                file_name=f"{st.session_state.last_cert_id}.json",
+                                mime="application/json",
+                                key="dl_btn_json_final"
+                            )
 
         except Exception as e:
             st.error(f"🚨 ENGINE ERROR: {e}")
