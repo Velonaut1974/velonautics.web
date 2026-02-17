@@ -814,7 +814,7 @@ with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
     
     vessel_options = [
         ("MS Velonaut Explorer", "9876543"),
-        ("Essberger Tribute", "9214567"),
+        ("Cap San Diego", "9214567"),
         ("Aframax Orion", "9432100")
     ]
     
