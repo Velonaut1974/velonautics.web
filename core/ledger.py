@@ -1,11 +1,15 @@
 import sqlite3
 import hashlib
 import json
-import time
 import nacl.signing
 import nacl.encoding
 import nacl.exceptions
 from datetime import datetime, timezone
+
+# --- PRODUCTION HARDENING ROADMAP (TODO) ---
+# 🟡 KEY MANAGEMENT: Currently using session-based keys. Move to HSM/Vault for production.
+# 🟡 KEY ROTATION: Implement 'KEY_ROTATION' block type to verify chain across key epochs.
+# 🟡 CONCURRENCY: SQLite is file-locked. Migrate to PostgreSQL (Row-Level Locking) for multi-operator usage.
 
 class VelonautLedger:
     def __init__(self, institution_id, db_path, public_key_hex):
@@ -16,7 +20,7 @@ class VelonautLedger:
             isolation_level=None, 
             check_same_thread=False 
         )
-        # Fix: Wir merken uns den Genesis-Key als initialen Anker
+        # Genesis Key Anchor
         self.__initial_verify_key_hex = public_key_hex
         self.__initial_verify_key = nacl.signing.VerifyKey(public_key_hex, encoder=nacl.encoding.HexEncoder)
         self._init_db_settings()
@@ -25,7 +29,8 @@ class VelonautLedger:
         c = self.__conn.cursor()
         c.execute("PRAGMA journal_mode = WAL")
         c.execute("PRAGMA synchronous = FULL")
-        # Wichtig: Tabelle heißt ledger_entries
+        
+        # Schema Definition
         c.execute("""
             CREATE TABLE IF NOT EXISTS ledger_entries (
                 seq INTEGER PRIMARY KEY,
@@ -35,198 +40,190 @@ class VelonautLedger:
                 prev_hash TEXT NOT NULL,
                 reg_hash TEXT,
                 payload_json TEXT NOT NULL,
-                block_hash TEXT NOT NULL,
+                current_hash TEXT NOT NULL,
                 signature TEXT NOT NULL,
-                timestamp_utc TEXT
+                timestamp_utc TEXT NOT NULL
             )
         """)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS period_closures (
-                reporting_year INTEGER PRIMARY KEY,
-                institution_id TEXT NOT NULL,
-                closure_block_seq INTEGER UNIQUE,
-                master_hash TEXT NOT NULL,
-                closed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        self.__conn.commit()
 
-    def _canonical_json(self, data):
-        return json.dumps(data, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    def _canonical_json(self, data_dict):
+        """Ensures deterministic hashing by sorting keys."""
+        return json.dumps(data_dict, sort_keys=True, separators=(',', ':')).encode('utf-8')
 
-    def has_entries(self):
-        cursor = self.__conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM ledger_entries")
-        return cursor.fetchone()[0] > 0
+    def is_initialized(self):
+        """Checks if Genesis block exists."""
+        c = self.__conn.cursor()
+        c.execute("SELECT COUNT(*) FROM ledger_entries")
+        return c.fetchone()[0] > 0
 
-    def get_genesis_public_key(self):
-        """Fix: Ermöglicht der App den Abgleich beim Start."""
-        cursor = self.__conn.cursor()
-        cursor.execute("SELECT payload_json FROM ledger_entries WHERE seq = 1 AND block_type = 'GENESIS'")
-        row = cursor.fetchone()
-        if not row: return None
-        return json.loads(row[0]).get("public_key")
+    def initialize_genesis(self, signer_func):
+        """
+        CRITICAL: Mints the Genesis Block (Seq 1).
+        Must be called explicitly with a valid signer.
+        """
+        if self.is_initialized():
+            raise Exception("Ledger already initialized.")
 
-    def get_all_entries(self):
-        cursor = self.__conn.cursor()
-        cursor.execute("""
-            SELECT seq, institution_id, block_type, reporting_year, 
-                   payload_json, block_hash, prev_hash, signature 
-            FROM ledger_entries 
-            ORDER BY seq DESC
-        """)
-        columns = [column[0] for column in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-    def add_entry(self, block_type, payload, reporting_year, signer_func):
-        cursor = self.__conn.cursor()
-        MAX_RETRIES = 15
-        for attempt in range(MAX_RETRIES):
-            try:
-                cursor.execute("BEGIN IMMEDIATE")
-                break 
-            except sqlite3.OperationalError as e:
-                if "locked" in str(e).lower() and attempt < MAX_RETRIES - 1:
-                    time.sleep(0.02 * (attempt + 1))
-                else: raise Exception(f"DATABASE_LOCKED: {e}")
-
-        try:
-            # Check ob Jahr bereits versiegelt
-            cursor.execute("SELECT 1 FROM period_closures WHERE reporting_year = ?", (reporting_year,))
-            if cursor.fetchone():
-                raise Exception(f"BLOCK_REJECTED: Year {reporting_year} is closed.")
-
-            cursor.execute("SELECT MAX(seq) FROM ledger_entries")
-            last_seq = cursor.fetchone()[0]
-            seq = (last_seq + 1) if last_seq is not None else 1
-
-            prev_hash = "0" * 64 if seq == 1 else None
-            if seq > 1:
-                cursor.execute("SELECT block_hash FROM ledger_entries WHERE seq = ?", (last_seq,))
-                prev_hash = cursor.fetchone()[0]
-
-            reg_hash = hashlib.sha256(self._canonical_json(payload)).hexdigest() if block_type == 'EVENT' else "N/A"
-            
-            block_body = {
-                "seq": seq, "institution_id": self.institution_id,
-                "block_type": block_type, "reporting_year": reporting_year,
-                "prev_hash": prev_hash, "reg_hash": reg_hash,
-                "payload": payload
-            }
-            
-            canonical = self._canonical_json(block_body)
-            block_hash = hashlib.sha256(canonical).hexdigest()
-            signature = signer_func(hashlib.sha256(canonical).digest()).hex()
-
-            cursor.execute("""
-                INSERT INTO ledger_entries 
-                (seq, institution_id, block_type, reporting_year, prev_hash, reg_hash, payload_json, block_hash, signature, timestamp_utc)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (seq, self.institution_id, block_type, reporting_year, prev_hash, reg_hash, 
-                  json.dumps(payload), block_hash, signature, datetime.now(timezone.utc).isoformat()))
-            
-            cursor.execute("COMMIT")
-            return block_hash
-        except Exception as e:
-            cursor.execute("ROLLBACK")
-            raise e
-
-    def seal_period(self, reporting_year, signer_func):
-        """Institutional Grade Seal: Versiegelt ein Jahr revisionssicher."""
-        cursor = self.__conn.cursor()
-        cursor.execute("BEGIN IMMEDIATE")
-        try:
-            # 1. Dublettenprüfung
-            cursor.execute("SELECT 1 FROM period_closures WHERE reporting_year = ?", (reporting_year,))
-            if cursor.fetchone(): 
-                raise Exception("PERIOD_ALREADY_SEALED")
-
-            # 2. Existenzprüfung (Keine leeren Jahre versiegeln)
-            cursor.execute("SELECT COUNT(*) FROM ledger_entries WHERE reporting_year = ? AND block_type != 'CLOSURE'", (reporting_year,))
-            if cursor.fetchone()[0] == 0:
-                raise Exception("EMPTY_PERIOD_CANNOT_BE_SEALED")
-
-            # 3. Integritäts-Check vorab
-            self.verify_integrity()
-
-            # 4. Master-Hash Bildung (Alle Blöcke außer Closures)
-            cursor.execute("""
-                SELECT block_hash FROM ledger_entries 
-                WHERE reporting_year = ? AND block_type != 'CLOSURE' 
-                ORDER BY seq ASC
-            """, (reporting_year,))
-            
-            hashes = [row[0] for row in cursor.fetchall()]
-            # Wir nutzen einen deterministischen JSON-Array-Hash für den Auditor
-            master_material = json.dumps(hashes, separators=(",", ":")).encode("utf-8")
-            master_hash = hashlib.sha256(master_material).hexdigest()
-
-            # 5. Den Versiegelungs-Block selbst in die Kette schreiben
-            closure_payload = {
-                "reporting_year": reporting_year,
-                "master_hash": master_hash,
-                "sealed_at_utc": datetime.now(timezone.utc).isoformat(),
-                "audit_note": "Institutional Final Seal"
-            }
-            self.add_entry("CLOSURE", closure_payload, reporting_year, signer_func)
-
-            # 6. Abschluss in die Index-Tabelle schreiben
-            cursor.execute("SELECT MAX(seq) FROM ledger_entries")
-            latest_seq = cursor.fetchone()[0]
-            
-            cursor.execute("""
-                INSERT INTO period_closures (reporting_year, institution_id, closure_block_seq, master_hash)
-                VALUES (?, ?, ?, ?)
-            """, (reporting_year, self.institution_id, latest_seq, master_hash))
-
-            cursor.execute("COMMIT")
-            return master_hash
-        except Exception as e:
-            cursor.execute("ROLLBACK")
-            raise e
-
-    def rotate_key(self, old_signer_func, new_public_key_hex):
-        payload = {
-            "msg": "KEY_ROTATION_PROTOCOL_ACTIVE",
-            "new_public_key": new_public_key_hex,
-            "ts_utc": datetime.now(timezone.utc).isoformat()
+        # Hardcoded Anchor
+        prev_hash = "0" * 64
+        genesis_payload = {
+            "message": "VELONAUT INSTITUTIONAL GENESIS",
+            "version": "RC1-v0.9",
+            "protocol": "Ed25519-SHA256-SQLite",
+            "meta": "System Root Anchor"
         }
-        return self.add_entry("KEY_ROTATION", payload, 0, old_signer_func)
-    
-    def is_period_sealed(self, reporting_year):
-        """Prüft revisionssicher, ob für das Jahr bereits ein SEAL-Block existiert."""
-        cursor = self.__conn.cursor()
-        # Wir suchen in der Tabelle nach einem Eintrag vom Typ CLOSURE oder PERIOD_SEAL für das Jahr
-        cursor.execute("""
-            SELECT 1 FROM ledger_entries 
-            WHERE (block_type = 'CLOSURE' OR block_type = 'PERIOD_SEAL') 
-            AND reporting_year = ?
-        """, (reporting_year,))
-        return cursor.fetchone() is not None
 
+        # 1. Prepare Body (Seq 1 for SQL compatibility)
+        body = {
+            "seq": 1,
+            "institution_id": self.institution_id,
+            "block_type": "GENESIS",
+            "reporting_year": 0,
+            "prev_hash": prev_hash,
+            "reg_hash": None,
+            "payload": genesis_payload
+        }
+
+        # 2. Hash
+        block_hash = hashlib.sha256(self._canonical_json(body)).hexdigest()
+
+        # 3. Sign
+        signature = signer_func(block_hash.encode('utf-8'))
+        signature_hex = signature.hex()
+        ts = datetime.now(timezone.utc).isoformat()
+
+        # 4. Commit
+        cursor = self.__conn.cursor()
+        cursor.execute("""
+            INSERT INTO ledger_entries 
+            (institution_id, block_type, reporting_year, prev_hash, reg_hash, payload_json, current_hash, signature, timestamp_utc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            self.institution_id, "GENESIS", 0, prev_hash, None,
+            json.dumps(genesis_payload), block_hash, signature_hex, ts
+        ))
+        return True
+
+    def add_entry(self, block_type, payload, reporting_year, signer_func=None):
+        """
+        Core Write Method. Calculates Hash, PrevHash and Signature.
+        """
+        if not self.is_initialized():
+            raise Exception("Ledger not initialized. Genesis block missing.")
+
+        cursor = self.__conn.cursor()
+        
+        # 1. Get Prev Hash
+        cursor.execute("SELECT seq, current_hash FROM ledger_entries ORDER BY seq DESC LIMIT 1")
+        last_row = cursor.fetchone()
+        
+        if not last_row:
+            raise Exception("CRITICAL: Integrity Check Failed. No previous block found but Genesis check passed.")
+            
+        prev_hash = last_row[1]
+
+        # 2. Prepare Body
+        body_for_hash = {
+            "seq": last_row[0] + 1,
+            "institution_id": self.institution_id,
+            "block_type": block_type,
+            "reporting_year": reporting_year,
+            "prev_hash": prev_hash,
+            "reg_hash": None, # Null for internal/custody blocks
+            "payload": payload
+        }
+        
+        # 3. Hash
+        block_hash = hashlib.sha256(self._canonical_json(body_for_hash)).hexdigest()
+        
+        # 4. Sign
+        if not signer_func:
+            raise ValueError("Cryptographic Signing Function Required")
+        
+        signature = signer_func(block_hash.encode('utf-8'))
+        signature_hex = signature.hex()
+        
+        # 5. Commit
+        ts = datetime.now(timezone.utc).isoformat()
+        
+        cursor.execute("""
+            INSERT INTO ledger_entries 
+            (institution_id, block_type, reporting_year, prev_hash, reg_hash, payload_json, current_hash, signature, timestamp_utc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            self.institution_id, block_type, reporting_year, prev_hash, None,
+            json.dumps(payload), block_hash, signature_hex, ts
+        ))
+        return cursor.lastrowid
+    
+    def get_genesis_public_key(self):
+        """Returns the hex string of the Genesis Verification Key."""
+        return self.__initial_verify_key_hex
+
+    # --- MODULE 10 INTERFACE ---
+    def add_portfolio_event(self, block_type, payload_dict, signer_func):
+        """
+        BANK-GRADE WRITE OPS.
+        Enforces signer_func and reporting_year=0.
+        """
+        if not signer_func:
+            raise ValueError("SECURITY ALERT: signer_func is mandatory for Portfolio Events.")
+            
+        return self.add_entry(
+            block_type=block_type,
+            payload=payload_dict,
+            reporting_year=0,
+            signer_func=signer_func
+        )
+
+    # --- AUDIT CORE ---
     def verify_integrity(self):
+        """
+        Re-calculates the entire chain from Genesis to Now.
+        Verifies Hashes, Links (PrevHash), and Signatures.
+        """
         cursor = self.__conn.cursor()
         cursor.execute("SELECT * FROM ledger_entries ORDER BY seq ASC")
         rows = cursor.fetchall()
+        
+        if not rows:
+            return True # Empty is valid state (pre-genesis)
+            
+        # Genesis Anchor Expectation
         expected_prev_hash = "0" * 64
         
-        current_v_key = self.__initial_verify_key
+        # In RC1, we assume the initial key is valid for the whole chain.
+        # Production TODO: Logic to switch `current_v_key` on 'KEY_ROTATION' block type.
+        current_v_key = self.__initial_verify_key 
         
         for r in rows:
+            # Columns: 0:seq, 1:inst_id, 2:type, 3:year, 4:prev, 5:reg, 6:payload, 7:curr, 8:sig, 9:ts
             body = {
-                "seq": r[0], "institution_id": r[1], "block_type": r[2],
-                "reporting_year": r[3], "prev_hash": r[4], "reg_hash": r[5],
+                "seq": r[0], 
+                "institution_id": r[1], 
+                "block_type": r[2],
+                "reporting_year": r[3], 
+                "prev_hash": r[4], 
+                "reg_hash": r[5],
                 "payload": json.loads(r[6])
             }
-            recalc_bytes = hashlib.sha256(self._canonical_json(body)).digest()
-            if recalc_bytes.hex() != r[7]: raise Exception(f"HASH_MISMATCH at SEQ {r[0]}")
             
-            current_v_key.verify(recalc_bytes, bytes.fromhex(r[8]))
-            if r[4] != expected_prev_hash: raise Exception(f"CHAIN_BREAK at SEQ {r[0]}")
+            # 1. Verify Hash
+            recalc_hash = hashlib.sha256(self._canonical_json(body)).hexdigest()
+            if recalc_hash != r[7]:
+                raise Exception(f"HASH_MISMATCH at SEQ {r[0]}")
             
-            if r[2] == 'KEY_ROTATION':
-                new_key_hex = body['payload']['new_public_key']
-                current_v_key = nacl.signing.VerifyKey(new_key_hex, encoder=nacl.encoding.HexEncoder)
-                
+            # 2. Verify Chain Link
+            if r[4] != expected_prev_hash:
+                raise Exception(f"CHAIN_BREAK at SEQ {r[0]}: PrevHash mismatch. Expected {expected_prev_hash[:8]}... Got {r[4][:8]}...")
+            
+            # 3. Verify Signature
+            try:
+                current_v_key.verify(r[7].encode('utf-8'), bytes.fromhex(r[8]))
+            except nacl.exceptions.BadSignatureError:
+                raise Exception(f"INVALID_SIGNATURE at SEQ {r[0]}")
+            
+            # Advance
             expected_prev_hash = r[7]
+            
         return True
