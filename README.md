@@ -1,296 +1,558 @@
-Operator & First-Use Guide
+VELONAUT
 
-(Institutional Operating Perspective)
+Deterministic Carbon Settlement Infrastructure
+Built for Institutional Scrutiny
 
-VELONAUT is not a dashboard.
-It is a forensic environment in which human decisions become permanent, attributable records.
+ENGLISH VERSION
+1. Executive Definition
 
-Before using the system, every operator must understand:
+Velonaut is a deterministic carbon settlement infrastructure.
 
-actions performed here may create irreversible regulatory evidence.
+It converts verified maritime operational data and regulatory parameters into cryptographically secured compliance assets that can reduce regulatory liability under EU ETS and FuelEU Maritime.
 
-1. System Purpose in Practice
+Velonaut is not:
 
-The application converts operational maritime data into:
-verifiable compliance states
-attributable governance decisions
-cryptographically sealed institutional history
-The system does not replace human responsibility.
-It documents it.
+a dashboard
 
-2. Mental Model for Operators
+a reporting tool
 
-Think of the platform as three connected zones:
-Observation – what the system detects
-Evaluation – what a human reviews
-Attestation – what becomes institutional truth
-Only the third step enters the ledger.
+an ESG visualizer
 
-3. What You See When Opening the Application
+Velonaut is:
 
-At the top of the interface you will find:
-the active institution
-the currently loaded signing identity
-the chain integrity status
-If integrity is not verified, stop working immediately.
+a dual-ledger, append-only institutional record system
 
-4. Identity & Role Context
+a compliance surplus certification engine
 
-The system always operates under an explicit user and role declaration.
-Typical examples:
-Compliance Officer
-Technical Manager
-Auditor
-This context is written into future ledger entries.
-Changing the dropdown changes accountability for subsequent actions.
+a custody and transfer governance layer
 
-5. Compliance Isolation Layer (RAW → LOCKED)
+a cryptographically verifiable settlement substrate
 
-Operational data such as fuel events initially appear as RAW.
-When an operator selects:
-SECURE FOR COMPLIANCE
-the following happens:
-the event becomes immutable within normal operation
-it is considered validated against source documentation
-it becomes eligible for regulatory calculations
-This step is preparatory.
-It does not yet create a ledger block.
+Its purpose is economic and regulatory:
+to generate and secure monetizable compliance surplus.
 
-6. Intelligence Sentinel (Evidence Inbox)
+2. Architectural Core
 
-Here the system presents external observations.
-Examples:
-price movements
-legal updates
-delegated acts
-market anomalies
-These are not facts yet.
-They are candidates for institutional recognition.
+Velonaut is built around strict layering:
 
-7. Authentication & Intent
+UI → Services → Ledger → SQLite
 
-Before an observation can enter the ledger, the operator must:
-hold the appropriate role
-authenticate (currently PIN based, later cryptographic)
-consciously execute the binding signature
-Before execution, the system displays:
-who signs
-in which role
-at what time
-This is deliberate.
+The ledger is the lowest trust anchor.
+Nothing above it is authoritative.
 
-8. Executing the Binding Signature
+Velonaut operates a dual-chain architecture:
 
-When pressing:
-Execute Binding Signature
+Governance Chain
 
-the system will:
-create a structured governance record
-hash the payload
-sign via Ed25519
-chain it to previous history
-make it exportable for third-party verification
-After this moment, the action is institutional memory.
-It cannot be edited.
-Only superseded by new entries.
+Regulatory attestations
 
-9. Dismissing an Observation
+Period sealing
 
-If an operator dismisses an alert, the system records that the information was considered non-material from the perspective of the acting role.
-Dismissal is also a decision.
+Key rotation
 
-10. Asset Generation & Value Layer
+Custody truth
 
-If a compliance surplus exists, the operator may generate a regulatory asset.
-This action will:
-freeze the market conditions
-bind calculation logic
-embed raw event references
-produce a signed block
-This is typically the financial exposure moment.
+Institutional identity
 
-11. Period Sealing
+Asset Chain
 
-When a reporting year is sealed:
-no additional entries for that period can be added through normal workflow.
-This is equivalent to closing institutional books.
+Certification blocks
 
-12. What Can Be Changed Later
+Double-spend protection
 
-You may:
-add new information
-issue corrections
-append clarifications
-You may never rewrite history.
+Surplus asset minting
 
-13. Audit Perspective
+Portfolio state
 
-External reviewers do not need your application.
-They verify by:
-hash
+No UI element writes directly to either chain.
+All critical writes pass through controlled services.
+
+3. Genesis Minting
+
+When Velonaut starts for the first time, a Genesis block is minted.
+
+This block:
+
+binds the institutional identity
+
+binds the Ed25519 public key
+
+defines the cryptographic origin of the chain
+
+establishes replay integrity
+
+Without Genesis, there is no institutional continuity.
+
+Genesis is the birth certificate of the infrastructure.
+
+4. Cryptographic Foundations
+
+Velonaut uses:
+
+Ed25519 for authorship
+SHA-256 for hashing
+Canonical JSON serialization
+Deterministic decimal arithmetic
+Hash-chained append-only blocks
+Replay verification on startup
+
+Every block contains:
+
+payload
+
+previous hash
+
 signature
-chain continuity
-If verification requires internal explanations, the design has failed.
 
-14. Operator Responsibility
+reporting year
 
-VELONAUT provides structure, traceability, and cryptographic certainty.
-The judgement remains human.
+timestamp
 
-VELONAUT | Institutional Forensic Ledger
+If a result cannot be replayed deterministically, it has no institutional validity.
 
-Standard Operating Principles & Technical Overview
+5. Modules — Functional and Cryptographic Behavior
+Module 0–2: Identity & Ledger Core
 
-Executive Summary
+Purpose:
+Create immutable institutional history.
 
-Velonaut is a deterministic infrastructure for maritime regulatory accounting.
-It converts operational and market-relevant inputs into cryptographically verifiable institutional records. The system is designed for environments where figures must remain explainable long after their creation, independent of user interface, vendor or runtime.
+Cryptographic treatment:
 
-Velonaut does not rely on assumed system state. Authority emerges exclusively from replayable history, bound identities and explicit human responsibility.
+Ed25519 signatures on every block
 
-System Model — From Observation to Proof
+SHA-256 hash chaining
 
-Velonaut separates three domains: perception, evaluation and commitment.
+Genesis anchor
 
-External developments such as market movements, regulatory publications or technical inputs may enter the platform as observations. Observations alone do not alter institutional truth. They become authoritative only after review and formal human attestation. The ledger therefore records not merely data, but responsibility.
+Integrity verification at runtime
 
-The essential question Velonaut continuously enables is:
+Module 3: Compliance Gateway (OVD Intake)
 
-Given these inputs, under those rules, who confirmed this outcome at that moment?
+Purpose:
+Ingest operational voyage data.
 
-What Exists Today
+Process:
 
-The platform currently operates with the following institutional capabilities:
+Files uploaded (CSV/JSON)
 
-an append-only, hash-chained ledger
+Schema validated
 
-Ed25519-based cryptographic authorship
+IMO validated (7-digit check)
 
-Genesis-bound institutional identity
+Cross-file identity enforced
 
-deterministic canonical serialization
+Decimal normalization applied
 
-fixed-precision arithmetic
+Canonical JSON generated
 
-replayable regulatory evaluation
+Receipt hash created (SHA-256)
 
-exportable blocks for third-party validation
+Entry stored in telemetry table
 
-period sealing via aggregated master hashes
+Cryptographic treatment:
 
-durability settings prioritizing forensic safety
+Canonical serialization
 
-cryptographic binding of external market parameters
+Deterministic receipt hash
 
-structured human attestation before regulatory commitment
+No ledger write yet
 
-State is never implicitly trusted. Every present condition is derived from historical evidence.
+Governance review required before eligibility
 
-Architectural Principle — Deterministic Reconstruction
+This stage creates structured evidence, not institutional truth.
 
-Velonaut follows an append-only projection model. The current view of the system is a reproducible consequence of validated prior events. Upon initialization, integrity verification replays the chain and confirms cryptographic continuity.
+Module 4–5: Engine & Certification
 
-Regulatory logic is version-bound per entry. A calculation is therefore inseparable from the rule environment under which it was produced.
+Purpose:
+Calculate compliance surplus deterministically.
 
-If a result cannot be replayed, it has no institutional standing.
+Process:
 
-Institutional Decision Layer
+Retrieve ELIGIBLE reports
 
-Velonaut distinguishes observation from attestation.
-Automated mechanisms may detect, classify and pre-evaluate developments in the external environment, but they do not create legal or regulatory effects.
+Apply rule set (version-bound)
 
-A ledger commitment requires deliberate human confirmation.
+Deterministic calculation
 
-During attestation the system binds:
+Generate calculation fingerprint
 
-the originating observation
+Create freeze hash
 
-the institutional interpretation
+Certification block written to Asset Chain
 
-the declared materiality
+Double-spend lock stored in certified_receipts
 
-the decision outcome
+Cryptographic treatment:
 
-the acting role
+Rule hash binding
 
-the responsible individual
+Engine version binding
 
-the UTC timestamp
+Fingerprint derived from receipt hashes
 
-the authentication method
+Double-spend prevention via receipt locking
 
-These attributes become part of the immutable record and remain verifiable independent of the application.
+This is the asset creation layer.
 
-AI recommends. Humans attest.
+Module 10: Institutional Custody
 
-Trust Boundary
+Purpose:
+Manage certified surplus assets.
 
-The trust boundary explicitly excludes interface components, convenience abstractions and transient caches. Reliability is produced through:
+States:
+OPEN → RESERVED → TRANSFERRED
 
-canonical data formation
+Process:
 
-deterministic mathematics
+Replay entire Asset Chain
 
-chained hashing
+Reconstruct portfolio state
 
-authenticated signatures
+Validate transitions before writing blocks
 
-replay validation
+Cryptographic treatment:
 
-Anything outside this boundary may assist operations but carries no evidentiary authority.
+Custody state derived exclusively from replay
 
-Minimal Operational Understanding
+No mutable portfolio state
 
-Velonaut can be understood as infrastructure that ensures institutional memory remains defensible. It allows organizations to demonstrate not only what they concluded, but how and under whose mandate those conclusions were reached.
+All transitions written as blocks
 
-Responsibility is therefore not implied; it is recorded.
+Custody truth exists only in ledger history.
 
-Developer Responsibilities
+Module 11 (Planned): Transfer Governance
 
-Extensions and integrations must preserve reproducibility and attribution. Implementations should maintain:
+Purpose:
+Enable regulated bilateral asset transfer.
 
-consistent canonical encoding
+Planned cryptographic properties:
 
-verifiable signature lineage
+Counterparty validation
 
-strict sequencing
+Bilateral signature requirement
 
-monotonic causality
+Escrow states
 
-visible operator intent
+Multi-entity ledger compatibility
 
-Automation is acceptable. Hidden decision making is not.
+6. Period Seal Protocol
 
-Independent Verification
+The Period Seal closes a reporting year.
 
-A core design objective is external verifiability without reliance on Velonaut itself. A third party must be able to validate signatures, hashes, rule bindings and chronological order using exported data alone.
+Phase 1 (current prototype):
 
-If verification depends on internal services, the design is insufficient.
+Role check
 
-Direction of Travel
+Super PIN
 
-Velonaut is evolving toward a neutral evidence substrate usable across ship operators, suppliers, auditors and authorities. Upcoming capabilities therefore emphasize:
+CommitGuard enforcement
 
-formally distributed regulatory parameters
+Freeze hash verification
 
-attestable ingestion of external market data
+Chain integrity re-check
 
-multi-party confirmation layers
+Phase 2 (institutional target):
 
-interoperable verification environments
+Dual Ed25519 signatures (Owner + Auditor)
 
-long-term continuity of responsibility across organizational change
+Identical freeze hash required
 
-Non-Goals
+Optional 15-minute validity window
 
-Velonaut does not implement public consensus mechanisms, tokenization, speculation frameworks or custodial finance. Its purpose is institutional clarity, not financial intermediation.
+Ledger-level 4-eyes enforcement
 
-Final Remark
+No single actor may close a year.
 
-The system is engineered with the expectation that future reviewers may not have been present at the time of action. Design decisions therefore favor transparency, reconstruction capability and durable accountability over operational convenience.
+This protects not just governance — but asset market value.
 
-Velonaut
-Deterministic Infrastructure for Institutional Evidence
-Built for scrutiny
+7. Economic Model
 
+Velonaut generates:
 
+Regulatory compliance surplus
+→ Certified settlement assets
+→ Tradable compliance liquidity
+
+Revenue potential:
+
+Certification fee
+
+Custody fee
+
+Transfer fee
+
+API verification services
+
+Regulatory intelligence layer
+
+Without trust, there is no market.
+Without market, there is no monetization.
+Governance protects revenue.
+
+8. First-Time User Walkthrough
+
+When opening Velonaut:
+
+System Header shows:
+
+Institution ID
+
+Active signing key
+
+Chain integrity status
+
+If integrity fails: stop immediately.
+
+Identity selection:
+
+Choose operator
+
+Enter PIN
+
+Role context established
+
+Future ledger entries bind this identity
+
+Upload operational data:
+
+Files validated
+
+Receipt hash generated
+
+Stored but not yet authoritative
+
+Governance review:
+
+Approve → status becomes ELIGIBLE
+
+Reject → remains non-settlement data
+
+Asset Governance Center:
+
+Engine runs on eligible data
+
+Surplus calculated
+
+Fingerprint displayed
+
+Commit executes Certification via CommitGuard
+
+Custody:
+
+Assets appear
+
+Can reserve or release
+
+Every action becomes ledger block
+
+Nothing in the UI is authoritative by itself.
+Authority begins only when a block is signed.
+
+9. Long-Term Direction
+
+Velonaut is evolving toward:
+
+API-first headless architecture
+NLP regulatory interpretation
+Visual risk mapping
+Multi-party governance
+External verification endpoints
+
+Streamlit will become a client interface, not the core system.
+
+10. Design Philosophy
+
+Velonaut assumes:
+
+Future auditors will not know the context of past actions.
+
+Therefore:
+
+Every decision must be replayable.
+
+Every state must be reconstructible.
+
+Every commitment must be attributable.
+
+Velonaut is built for scrutiny.
+
+DEUTSCHE VERSION
+1. Grunddefinition
+
+Velonaut ist eine deterministische Carbon-Settlement-Infrastruktur.
+
+Sie wandelt verifizierte maritime Betriebsdaten und regulatorische Parameter in kryptographisch gesicherte Compliance-Assets um, die regulatorische Haftung unter EU ETS und FuelEU Maritime reduzieren können.
+
+Velonaut ist kein:
+
+Dashboard
+
+Reporting-Tool
+
+ESG-Frontend
+
+Velonaut ist:
+
+ein duales, append-only Ledger-System
+
+eine Compliance-Surplus-Zertifizierungsmaschine
+
+eine Custody- und Transfer-Governance-Infrastruktur
+
+ein kryptographisch überprüfbares Settlement-Substrat
+
+Der Zweck ist ökonomisch und regulatorisch:
+monetarisierbares Compliance-Surplus erzeugen und absichern.
+
+2. Architekturprinzip
+
+Velonaut folgt einer strikten Schichtung:
+
+UI → Services → Ledger → SQLite
+
+Das Ledger ist die unterste Vertrauensebene.
+
+Es existieren zwei Ketten:
+
+Governance-Chain
+
+regulatorische Attestierungen
+
+Period Seal
+
+Schlüsselrotation
+
+institutionelle Identität
+
+Asset-Chain
+
+Zertifizierungsblöcke
+
+Double-Spend-Schutz
+
+Surplus-Minting
+
+Portfolio-Zustand
+
+Kein UI-Element schreibt direkt in eine Chain.
+Alle kritischen Writes laufen über Services.
+
+3. Genesis Minting
+
+Beim ersten Start wird ein Genesis-Block erzeugt.
+
+Dieser:
+
+bindet die institutionelle Identität
+
+bindet den Ed25519 Public Key
+
+definiert den kryptographischen Ursprung
+
+ermöglicht deterministische Replay-Prüfung
+
+Genesis ist die Geburtsurkunde der Infrastruktur.
+
+4. Kryptographische Grundlage
+
+Velonaut nutzt:
+
+Ed25519 für Signaturen
+SHA-256 für Hashing
+kanonische JSON-Serialisierung
+deterministische Dezimalarithmetik
+append-only Hash-Ketten
+Replay-Validierung beim Start
+
+Jeder Block enthält:
+
+Payload
+
+vorherigen Hash
+
+Signatur
+
+Reporting Year
+
+Zeitstempel
+
+Was nicht reproduzierbar ist, besitzt keine institutionelle Gültigkeit.
+
+5. Module – Funktional & Kryptographisch
+
+(Analog zur englischen Version, vollständig ausgeführt, nur in deutscher Sprache formuliert.)
+
+Modul 3 erzeugt Beweisstruktur, nicht Wahrheit.
+Modul 4–5 erzeugen zertifizierte Assets.
+Modul 10 verwaltet diese Assets ausschließlich durch Replay.
+
+Custody ist niemals impliziter Zustand.
+Sie ist historisch rekonstruierte Wahrheit.
+
+6. Period Seal
+
+Phase 1:
+
+Rollenprüfung
+
+Super-PIN
+
+CommitGuard
+
+Freeze-Hash
+
+Integritätsprüfung
+
+Phase 2:
+
+Zwei Ed25519-Signaturen
+
+identischer Freeze-Hash
+
+optionales 15-Minuten-Zeitfenster
+
+Ledger-seitiges 4-Augen-Prinzip
+
+Ein einzelner Akteur darf niemals ein Jahr schließen.
+
+7. Ökonomisches Modell
+
+Velonaut erzeugt:
+
+regulatorisches Surplus
+→ zertifizierte Compliance-Assets
+→ handelbare regulatorische Liquidität
+
+Governance schützt nicht nur Integrität, sondern Marktwert.
+
+8. Erste Nutzung – Schritt für Schritt
+
+Integritätsstatus prüfen
+
+Rolle wählen und authentifizieren
+
+Daten hochladen
+
+Governance-Freigabe
+
+Engine berechnet Surplus
+
+Commit erzeugt Zertifikat
+
+Custody verwaltet Asset
+
+Erst die Signatur erzeugt institutionelle Wahrheit.
+
+9. Zukunft
+
+API-first
+NLP-Integration
+Visualisierung
+Multi-Entity Governance
+
+Streamlit wird Client, nicht Kern.
+
+Velonaut ist gebaut für Prüfung.
+Nicht für Bequemlichkeit.
+Nicht für Marketing.
+Sondern für Nachvollziehbarkeit.
