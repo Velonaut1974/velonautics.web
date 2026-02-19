@@ -1,96 +1,296 @@
-⚓ VELONAUT: Institutional Forensic Ledger
-Professional Manual & Asset Governance Guide
+Operator & First-Use Guide
 
-Welcome to VELONAUT. This is a forensic infrastructure tool designed to transform raw shipping telemetry into certified, tradable regulatory assets. By applying "Arithmetic Sovereignty," we ensure that every gram of fuel saved is converted into a high-value compliance token that can be banked, traded, or used to offset fleet liabilities.
-1. Access & Identity Control (The Trust Layer)
+(Institutional Operating Perspective)
 
-Value requires trust. We ensure every economic action is tied to an authorized individual.
+VELONAUT is not a dashboard.
+It is a forensic environment in which human decisions become permanent, attributable records.
 
-    Operator Identity: Select your professional identity from the registry.
+Before using the system, every operator must understand:
 
-    Access PIN: High-privilege actions, especially generating assets, require your 4-digit PIN (Default: 1234).
+actions performed here may create irreversible regulatory evidence.
 
-    Role-Based Authority: The system distinguishes between OWNERS (who sign assets) and AUDITORS (who verify them).
+1. System Purpose in Practice
 
-2. System Control Interface (The Economic Cockpit)
+The application converts operational maritime data into:
+verifiable compliance states
+attributable governance decisions
+cryptographically sealed institutional history
+The system does not replace human responsibility.
+It documents it.
 
-This is where maritime operations meet the carbon market.
+2. Mental Model for Operators
 
-    Compliance Period: Set the reporting year (e.g., 2026) to align with FuelEU Maritime cycles.
+Think of the platform as three connected zones:
+Observation – what the system detects
+Evaluation – what a human reviews
+Attestation – what becomes institutional truth
+Only the third step enters the ledger.
 
-    Market Data: Monitor the live EUA ETS Price to see the "Est. Market Value" of your generated assets.
+3. What You See When Opening the Application
 
-    Key Rotation: Rotate the signing key to ensure the "digital seal" used to mint your assets remains uncompromised.
+At the top of the interface you will find:
+the active institution
+the currently loaded signing identity
+the chain integrity status
+If integrity is not verified, stop working immediately.
 
-3. Fleet Gateway & Validation Buffer
+4. Identity & Role Context
 
-Before a report can become an asset, its integrity must be absolute.
+The system always operates under an explicit user and role declaration.
+Typical examples:
+Compliance Officer
+Technical Manager
+Auditor
+This context is written into future ledger entries.
+Changing the dropdown changes accountability for subsequent actions.
 
-    Telemetry Intake: Noon Reports are received and timestamped with a "Forensic Receipt Hash".
+5. Compliance Isolation Layer (RAW → LOCKED)
 
-    Validation Buffer: Suspicious data (e.g., "High Consumption Flag") is quarantined.
+Operational data such as fuel events initially appear as RAW.
+When an operator selects:
+SECURE FOR COMPLIANCE
+the following happens:
+the event becomes immutable within normal operation
+it is considered validated against source documentation
+it becomes eligible for regulatory calculations
+This step is preparatory.
+It does not yet create a ledger block.
 
-    Approval: You must manually "Approve for Compliance Use" to move data into the "Eligibility Pool".
+6. Intelligence Sentinel (Evidence Inbox)
 
-4. Asset Governance Center (The Mint)
+Here the system presents external observations.
+Examples:
+price movements
+legal updates
+delegated acts
+market anomalies
+These are not facts yet.
+They are candidates for institutional recognition.
 
-This is where your operational efficiency is "tokenized."
+7. Authentication & Intent
 
-    Live Metrics: The system calculates "Verified Fuel" and "CO2​ Emissions" against official FuelEU factors.
+Before an observation can enter the ledger, the operator must:
+hold the appropriate role
+authenticate (currently PIN based, later cryptographic)
+consciously execute the binding signature
+Before execution, the system displays:
+who signs
+in which role
+at what time
+This is deliberate.
 
-    Institutional Commit: Clicking this button "burns" the surplus into a certified block, turning math into a Sovereign Asset.
+8. Executing the Binding Signature
 
-    PDF Certification: Every commit creates a signed PDF document, serving as official proof of value.
+When pressing:
+Execute Binding Signature
 
-5. Comprehensive FAQ Section
-💼 Business & Economics
+the system will:
+create a structured governance record
+hash the payload
+sign via Ed25519
+chain it to previous history
+make it exportable for third-party verification
+After this moment, the action is institutional memory.
+It cannot be edited.
+Only superseded by new entries.
 
-    How does this make us money?
-    By proving efficiency with forensic certainty, you create "Compliance Surplus" units which have a direct market value in Euros under EU ETS and FuelEU.
+9. Dismissing an Observation
 
-    Is the PDF a "Token"?
-    The PDF is for humans, but the "Block Hash" in the Ledger is the actual digital token—it is unique and impossible to forge.
+If an operator dismisses an alert, the system records that the information was considered non-material from the perspective of the acting role.
+Dismissal is also a decision.
 
-    Can we pool these assets?
-    Yes, the verified "Compliance Balance" can be used for fleet pooling or banking for future years.
+10. Asset Generation & Value Layer
 
-🛡️ Safety & Security
+If a compliance surplus exists, the operator may generate a regulatory asset.
+This action will:
+freeze the market conditions
+bind calculation logic
+embed raw event references
+produce a signed block
+This is typically the financial exposure moment.
 
-    What happens if the database is deleted?
-    If the velonaut_main.sqlite is lost, the chain is broken. However, our "Self-Healing" logic recreates essential registry tables upon restart.
+11. Period Sealing
 
-    How secure is the signing process?
-    We use Ed25519 signatures, a modern cryptographic standard that ensures the "Seal" cannot be faked even by someone with database access.
+When a reporting year is sealed:
+no additional entries for that period can be added through normal workflow.
+This is equivalent to closing institutional books.
 
-    What is "Key Rotation"?
-    It’s like changing the locks on a vault. It ensures that even if an old key is compromised, your future assets remain secure.
+12. What Can Be Changed Later
 
-⚙️ App Operation (User Guide)
+You may:
+add new information
+issue corrections
+append clarifications
+You may never rewrite history.
 
-    Why can't I click "Commit"?
-    You must be logged in as an OWNER and provide a "Certification Statement" for the audit trail.
+13. Audit Perspective
 
-    What if a report is wrong?
-    Use the Reject button in the Validation Buffer. This prevents incorrect data from ever entering the calculation pool.
+External reviewers do not need your application.
+They verify by:
+hash
+signature
+chain continuity
+If verification requires internal explanations, the design has failed.
 
-    Why do I see an Anomaly Flag?
-    The system automatically flags reports that exceed normal consumption limits (e.g., > 15 mt) to prevent fraud or data entry errors.
+14. Operator Responsibility
 
-🔍 Audit-Readiness
+VELONAUT provides structure, traceability, and cryptographic certainty.
+The judgement remains human.
 
-    How do I prove this to an Auditor?
-    Give them the Full Institutional Audit Trail (JSON) and the PDF Certificates. They can verify every signature independently.
+VELONAUT | Institutional Forensic Ledger
 
-    What is the "Forensic Replay Lab"?
-    It allows auditors to pick any historical block and re-calculate the math. If the "Mathematical Fingerprint" matches, the audit is passed.
+Standard Operating Principles & Technical Overview
 
-    Are the rules transparent?
-    Yes. Every block saves the exact "Rule Set" (e.g., Emission Factors) used at that moment, so the math remains verifiable forever.
+Executive Summary
 
-Next Steps for Kristof:
+Velonaut is a deterministic infrastructure for maritime regulatory accounting.
+It converts operational and market-relevant inputs into cryptographically verifiable institutional records. The system is designed for environments where figures must remain explainable long after their creation, independent of user interface, vendor or runtime.
 
-    Log in as Andreas with PIN 1234.
+Velonaut does not rely on assumed system state. Authority emerges exclusively from replayable history, bound identities and explicit human responsibility.
 
-    Generate a Noon Report and approve it with a comment.
+System Model — From Observation to Proof
 
-    Execute a Commit and download the resulting PDF.
+Velonaut separates three domains: perception, evaluation and commitment.
+
+External developments such as market movements, regulatory publications or technical inputs may enter the platform as observations. Observations alone do not alter institutional truth. They become authoritative only after review and formal human attestation. The ledger therefore records not merely data, but responsibility.
+
+The essential question Velonaut continuously enables is:
+
+Given these inputs, under those rules, who confirmed this outcome at that moment?
+
+What Exists Today
+
+The platform currently operates with the following institutional capabilities:
+
+an append-only, hash-chained ledger
+
+Ed25519-based cryptographic authorship
+
+Genesis-bound institutional identity
+
+deterministic canonical serialization
+
+fixed-precision arithmetic
+
+replayable regulatory evaluation
+
+exportable blocks for third-party validation
+
+period sealing via aggregated master hashes
+
+durability settings prioritizing forensic safety
+
+cryptographic binding of external market parameters
+
+structured human attestation before regulatory commitment
+
+State is never implicitly trusted. Every present condition is derived from historical evidence.
+
+Architectural Principle — Deterministic Reconstruction
+
+Velonaut follows an append-only projection model. The current view of the system is a reproducible consequence of validated prior events. Upon initialization, integrity verification replays the chain and confirms cryptographic continuity.
+
+Regulatory logic is version-bound per entry. A calculation is therefore inseparable from the rule environment under which it was produced.
+
+If a result cannot be replayed, it has no institutional standing.
+
+Institutional Decision Layer
+
+Velonaut distinguishes observation from attestation.
+Automated mechanisms may detect, classify and pre-evaluate developments in the external environment, but they do not create legal or regulatory effects.
+
+A ledger commitment requires deliberate human confirmation.
+
+During attestation the system binds:
+
+the originating observation
+
+the institutional interpretation
+
+the declared materiality
+
+the decision outcome
+
+the acting role
+
+the responsible individual
+
+the UTC timestamp
+
+the authentication method
+
+These attributes become part of the immutable record and remain verifiable independent of the application.
+
+AI recommends. Humans attest.
+
+Trust Boundary
+
+The trust boundary explicitly excludes interface components, convenience abstractions and transient caches. Reliability is produced through:
+
+canonical data formation
+
+deterministic mathematics
+
+chained hashing
+
+authenticated signatures
+
+replay validation
+
+Anything outside this boundary may assist operations but carries no evidentiary authority.
+
+Minimal Operational Understanding
+
+Velonaut can be understood as infrastructure that ensures institutional memory remains defensible. It allows organizations to demonstrate not only what they concluded, but how and under whose mandate those conclusions were reached.
+
+Responsibility is therefore not implied; it is recorded.
+
+Developer Responsibilities
+
+Extensions and integrations must preserve reproducibility and attribution. Implementations should maintain:
+
+consistent canonical encoding
+
+verifiable signature lineage
+
+strict sequencing
+
+monotonic causality
+
+visible operator intent
+
+Automation is acceptable. Hidden decision making is not.
+
+Independent Verification
+
+A core design objective is external verifiability without reliance on Velonaut itself. A third party must be able to validate signatures, hashes, rule bindings and chronological order using exported data alone.
+
+If verification depends on internal services, the design is insufficient.
+
+Direction of Travel
+
+Velonaut is evolving toward a neutral evidence substrate usable across ship operators, suppliers, auditors and authorities. Upcoming capabilities therefore emphasize:
+
+formally distributed regulatory parameters
+
+attestable ingestion of external market data
+
+multi-party confirmation layers
+
+interoperable verification environments
+
+long-term continuity of responsibility across organizational change
+
+Non-Goals
+
+Velonaut does not implement public consensus mechanisms, tokenization, speculation frameworks or custodial finance. Its purpose is institutional clarity, not financial intermediation.
+
+Final Remark
+
+The system is engineered with the expectation that future reviewers may not have been present at the time of action. Design decisions therefore favor transparency, reconstruction capability and durable accountability over operational convenience.
+
+Velonaut
+Deterministic Infrastructure for Institutional Evidence
+Built for scrutiny
+
+
