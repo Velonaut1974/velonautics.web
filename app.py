@@ -1,37 +1,53 @@
 import streamlit as st
 
+# --- 0. PAGE CONFIG (Must be the very first Streamlit command) ---
 st.set_page_config(
-    page_title="Velonaut | Institutional Ledger v0.7.4",
+    page_title="Velonaut | Institutional Ledger v1.0.0",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
 
-# --- 1. CORE IMPORTS & SYSTEM CONFIG ---
+# --- 1. CORE IMPORTS (Standard Libraries) ---
 import sqlite3
 import re
 import json
+import random
+import csv
+import io
 import uuid
 import hashlib
 import os
 import time
 import unicodedata
-import nacl.signing
-import nacl.encoding
-import streamlit as st  # Sicherstellen, dass streamlit als 'st' verfügbar ist
-from uuid import uuid4
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation, getcontext
 
-# --- MODUL 10 IMPORTS & CONFIG ---
-from portfolio import PortfolioCustodian
-import os
+# --- 2. THIRD-PARTY IMPORTS ---
+import nacl.signing
+import nacl.encoding
+import pandas as pd
 
-# CANONICAL PATH DEFINITION – Single Source of Truth
+# --- 3. SYSTEM CONFIG & PATHS (Single Source of Truth) ---
+# Audit-Hinweis: Pfade sind nun zentralisiert und für die Services verfügbar.
 GOVERNANCE_DB_PATH = "data/velonaut_gov.db"
 ASSET_DB_PATH = "data/velonaut_ledger.db"
-LEDGER_DB_PATH = ASSET_DB_PATH  # Legacy alias
-KEY_PATH = "data/velonaut_signing.key"  # <- das fehlte
+LEDGER_DB_PATH = ASSET_DB_PATH  # Legacy alias für Rückwärtskompatibilität
+KEY_PATH = "data/velonaut_signing.key"
+
+# --- 4. SERVICE & MODULE IMPORTS ---
+from core.auth_service import AuthService
+from core.intake_service import IntakeService
+from core.engine_service import AssetEngine
+from core.commit_guard_service import CommitGuardService
+
+# Architektur-Check: Dynamischer Import für optionale Module
+try:
+    from portfolio import PortfolioCustodian
+except ImportError:
+    # Im Audit-Modus sollte dies als kritische Warnung im Log erscheinen
+    st.warning("Architektur-Hinweis: Portfolio-Modul (portfolio.py) nicht aktiv.")
+
 
 # --- MODUL 10: INSTITUTIONAL CUSTODY LOGIC ---
 
@@ -150,10 +166,16 @@ def render_portfolio_module(ledger_instance):
             del st.session_state['msg_succ']
             st.rerun()
 
-# --- 2. GLOBAL PATH DEFINITION (DUAL DB ARCHITECTURE) ---
-# GOVERNANCE: Strenge Chain (Genesis, Custody, Rules)
-GOVERNANCE_DB_PATH = "data/velonaut_gov.db"
+# --- 4. SERVICE INITIALIZATION (Jetzt UNTER get_session_signer verschoben) ---
 
+# Wir holen uns das Signier-Werkzeug aus der Session
+active_signer = get_session_signer()
+
+auth_service = AuthService()
+# Wir übergeben den active_signer an den Service
+intake_service = IntakeService(LEDGER_DB_PATH, signer=active_signer)
+asset_engine = AssetEngine(LEDGER_DB_PATH)
+engine_service = asset_engine # Kleiner Tipp: Einfach das gleiche Objekt nutzen
 
 
 # --- PDF EXPORT IMPORTS ---
@@ -328,8 +350,7 @@ from core.ledger import VelonautLedger
 # ------------------------------------------------------------
 
 
-# --- MARKET HISTORY INITIALIZATION ---
-import sqlite3
+
 # --- MARKET HISTORY INITIALIZATION (CLEANED FOR RC1) ---
 def init_market_db():
     with sqlite3.connect(LEDGER_DB_PATH) as conn:
@@ -410,6 +431,23 @@ if "ledger_bundle" not in st.session_state:
 # Entpacken für die Nutzung in der App
 ledger, signing_key, is_valid, chain_errors = st.session_state.ledger_bundle
 
+# certification_service requires VelonautLedger — init after ledger_bundle unpack
+
+
+# asset_ledger: zweite Chain fuer Asset-Zertifikate (Dual Chain Architektur)
+if ledger and signing_key:
+    asset_ledger = VelonautLedger(
+        institution_id="VELONAUT_LABS_ASSET",
+        db_path=ASSET_DB_PATH,
+        public_key_hex=st.session_state.verify_key_hex
+    )
+    if not asset_ledger.is_initialized():
+        asset_ledger.initialize_genesis(lambda h: signing_key.sign(h).signature)
+    commit_guard = CommitGuardService(ledger, asset_ledger, asset_engine, ASSET_DB_PATH)
+else:
+    asset_ledger = None
+    commit_guard = None
+
 # --- SYNC FIX FÜR MODUL 10 ---
 if signing_key:
     st.session_state['private_key'] = signing_key
@@ -429,43 +467,26 @@ def build_market_snapshot(price: float, source: str = "EEX_SIM"):
         "timestamp_utc": timestamp_utc
     }
 
+    # Erstellung der kanonischen Form und des Hashes
     canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
     snapshot_hash = hashlib.sha256(canonical.encode()).hexdigest()
     snapshot["snapshot_hash"] = snapshot_hash
 
-    return snapshot
-
-    canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
-    snapshot_hash = hashlib.sha256(canonical.encode()).hexdigest()
-    snapshot["snapshot_hash"] = snapshot_hash
-
-    # In die separate Markthistorie schreiben
+    # Marktdaten über den Service archivieren (Block D Hygiene Fix)
     try:
-        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO market_prices (source, price, currency, confidence_level, timestamp_utc, retrieval_hash)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (source, price, "EUR", confidence_level, timestamp_utc, snapshot_hash))
-            conn.commit()
+        engine_service.log_market_price(LEDGER_DB_PATH, {
+            "source": snapshot['source'],
+            "price": snapshot['price'],
+            "currency": "EUR",
+            "confidence_level": snapshot['confidence_level'],
+            "timestamp_utc": snapshot['timestamp_utc'],
+            "retrieval_hash": snapshot_hash
+        })
     except Exception as e:
         st.error(f"Market History Logging failed: {e}")
 
     return snapshot
 
-def commit_regulatory_snapshot(event_type, payload, year):
-    """Der offizielle Weg in den institutionellen Ledger."""
-    try:
-        block_hash = ledger.add_entry(
-            event_type,
-            payload,
-            year,
-            lambda h: signing_key.sign(h).signature
-        )
-        return block_hash
-    except Exception as e:
-        st.error(f"COMMIT_FAILED: {str(e)}")
-        return None
 
 # ------------------------------------------------------------
 # 🔢 PRECISION & CONFIG
@@ -617,7 +638,7 @@ except Exception as e:
 # ------------------------------------------------------------
 with st.container(border=True):
     st.markdown("### SYSTEM IDENTITY & ACCESS CONTROL")
-    st.caption("Security Note: High-privilege roles require PIN authorization (Test-PIN: 1234)")
+    st.caption("Security Note: High-privilege roles require PIN authorization")
     
     c1, c2 = st.columns(2)
     
@@ -637,21 +658,24 @@ with st.container(border=True):
         )
         
     with c2:
-        # PIN-Abfrage für den Login-Vorgang
-        access_pin = st.text_input("Access PIN", type="password", help="Enter 1234 for testing purposes")
+        # PIN-Abfrage über das UI
+        access_pin = st.text_input("Access PIN", type="password")
 
-    # Validierungs-Logik
-    if access_pin == "1234":
-        # Erfolg: Identität und Rolle werden im System festgeschrieben
-        st.session_state["active_user"] = selected_user
-        st.session_state["active_role"] = user_registry[selected_user]
-        st.success(f"ACCESS GRANTED: {st.session_state['active_user']} as {st.session_state['active_role']}")
-    elif access_pin == "":
-        st.info("Please enter PIN to initialize session.")
-        st.session_state["active_user"] = "NOT_AUTHENTICATED"
-        st.session_state["active_role"] = "GUEST"
+    # Validierungs-Logik über den zentralen AuthService
+    if access_pin:
+        if auth_service.validate_login(access_pin):
+            # Erfolg: Identität und Rolle werden im System festgeschrieben
+            st.session_state["active_user"] = selected_user
+            st.session_state["active_role"] = user_registry[selected_user]
+            st.success(f"ACCESS GRANTED: {st.session_state['active_user']} as {st.session_state['active_role']}")
+        else:
+            # Fehlgeschlagen
+            st.error("ACCESS DENIED: Invalid Credentials")
+            st.session_state["active_user"] = "NOT_AUTHENTICATED"
+            st.session_state["active_role"] = "GUEST"
     else:
-        st.error("ACCESS DENIED: Invalid Credentials")
+        # Initialer Zustand (Leeres Feld)
+        st.info("Please enter PIN to initialize session.")
         st.session_state["active_user"] = "NOT_AUTHENTICATED"
         st.session_state["active_role"] = "GUEST"
 
@@ -680,15 +704,7 @@ with st.container(border=True):
         else:
             st.error("Ledger: BREACH")
         
-        # Der Siegel-Button
-        if st.button(f"Seal Year {selected_year}", key="btn_seal_emergency"):
-            try:
-                seal = ledger.seal_period(selected_year, lambda h: signing_key.sign(h).signature)
-                st.success("Versiegelt!")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(str(e))
+        
 
         # --- DER KEY ROTATION BUTTON ---
         st.markdown("---")
@@ -727,32 +743,6 @@ selected_year = st.sidebar.selectbox(
 st.sidebar.markdown("---")
 st.sidebar.subheader("Final Period Closure")
 
-# 1. Barriere: Rollen-Check
-active_role = st.session_state.get("active_role", "GUEST")
-
-if active_role in ["OWNER", "AUDITOR"]:
-    st.sidebar.caption(f"Authorized Action: Cryptographic Period Seal {selected_year}")
-    
-    # PIN-Eingabe zur Bestätigung
-    seal_pin = st.sidebar.text_input("Enter Authorization PIN", type="password", key="seal_pin_input")
-    
-    if st.sidebar.button(f"Execute Seal: {selected_year}", width="stretch", type="primary"):
-        # 2. Barriere: PIN-Validierung
-        if seal_pin == "1234":
-            try:
-                with st.spinner(f"Generating Cryptographic Seal for {selected_year}..."):
-                    # Der Versiegelungs-Prozess nutzt das gewählte Jahr
-                    seal = ledger.seal_period(selected_year, lambda h: signing_key.sign(h).signature)
-                    st.sidebar.success(f"Year {selected_year} locked successfully.")
-                    st.sidebar.code(f"Seal ID: {seal[:16]}", language="bash")
-                    time.sleep(2)
-                    st.rerun()
-            except Exception as e:
-                st.sidebar.error(f"Closure failed: {str(e)}")
-        else:
-            st.sidebar.error("Invalid Authorization PIN")
-else:
-    st.sidebar.warning("Seal Authority: Restricted to Auditor/Owner")
 
 # ------------------------------------------------------------
 # 🛰️ INSTITUTIONAL INTELLIGENCE SENTINEL (Evidence Inbox)
@@ -790,7 +780,6 @@ with st.container(border=True):
             
             # --- TACTICAL AUTHENTICATION BLOCK ---
             is_officer = st.session_state.get("active_role") == "Compliance Officer"
-            SECRET_PIN = "1920"
             
             # Schmale Spalte für das schwarze Terminal-Design
             col_auth, _ = st.columns([1.2, 2]) 
@@ -805,7 +794,7 @@ with st.container(border=True):
                     help="Geben Sie den 4-stelligen Sicherheitscode ein."
                 )
             
-            if pin_input == SECRET_PIN and is_officer:
+            if auth_service.validate_attestation(pin_input) and is_officer:
                 from datetime import datetime, timezone
                 st.warning(f"""
                 **LEGAL NOTICE: Pending Digital Signature** You are about to commit this evidence to the immutable ledger.  
@@ -839,14 +828,14 @@ with st.container(border=True):
                     
                     try:
                         # Hier rufen wir deine Commit-Funktion auf
-                        new_hash = commit_regulatory_snapshot("REGULATORY_ATTESTATION", payload, selected_year)
+                        new_hash = commit_guard.commit_regulatory_snapshot("REGULATORY_ATTESTATION", payload, selected_year, signing_key)
                         if new_hash:
                             st.session_state[f"success_{obs['id']}"] = True
                             st.rerun()
                     except Exception as e:
                         st.error(f"Critical Governance Error: {e}")
             
-            elif pin_input != "" and pin_input != SECRET_PIN:
+            elif pin_input != "" and not auth_service.validate_attestation(pin_input):
                 st.error("Invalid PIN. Access Denied.")
             
             # --- DISMISS LOGIK (In derselben vertikalen Flucht) ---
@@ -880,21 +869,7 @@ st.markdown("---")
 #------------------------------------------------
 # Modul 3: Fleet Gateway (Institutional Intake)
 #------------------------------------------------
-import hashlib
-import uuid
-import json
-import sqlite3
-import random
-from datetime import datetime, timezone
 
-import unicodedata
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
-
-import csv
-import io
-from decimal import Decimal, InvalidOperation
-from datetime import datetime
-import re
 
 class OVDFormatDetector:
     """Strikte Format-Erkennung. Nur 100% Treffer werden akzeptiert."""
@@ -1135,7 +1110,7 @@ class ComplianceGateway:
                 "receipt_hash": receipt_hash,
                 "schema_version": "1.1.4",
                 "intake_timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "dataset_id": str(uuid4())
+                "dataset_id": str(uuid.uuid4())
             },
             "engine_input": engine_input,
             "full_audit_payload": {
@@ -1180,6 +1155,25 @@ with sqlite3.connect(LEDGER_DB_PATH) as conn:
             certificate_block_hash TEXT NOT NULL
         )
     ''')
+
+    # 4. NEU: Authority Registry (Mandats-Verzeichnis für Block D Freigabe)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS authority_registry (
+            actor TEXT NOT NULL,
+            role TEXT NOT NULL,
+            public_key TEXT NOT NULL,
+            valid_from TEXT NOT NULL,
+            valid_until TEXT,
+            PRIMARY KEY (actor, role, valid_from)
+        )
+    ''')
+    
+    # SEED DATA: Andreas als offiziellen OWNER autorisieren
+    cursor.execute('''
+        INSERT OR IGNORE INTO authority_registry (actor, role, public_key, valid_from)
+        VALUES ('Andreas', 'OWNER', 'SYSTEM_DEFAULT', '2025-01-01T00:00:00Z')
+    ''')
+    
     conn.commit()
 
 # --- FORENSIC HELPERS (PRODUKTIONS-STANDARD) ---
@@ -1209,180 +1203,119 @@ def simulate_inbound_report(vessel_name, imo):
         r_hash = generate_forensic_receipt_hash(imo, received_at, canonical_payload)
         report_id = f"SIM-{imo}-{uuid.uuid4().hex[:8].upper()}"
 
-        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-            conn.cursor().execute('''
-                INSERT INTO telemetry_reports 
-                (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (report_id, imo, vessel_name, canonical_payload, received_at, r_hash, "RECEIVED"))
-            conn.commit()
+        # Wir rufen den Service auf, anstatt selbst in die DB zu schreiben
+        intake_service.add_simulated_report({
+            "report_id": report_id,
+            "imo": imo,
+            "vessel_name": vessel_name,
+            "raw_json": canonical_payload,
+            "received_at": received_at,
+            "receipt_hash": r_hash
+        })
         return report_id
     except Exception as e:
         st.error(f"Simulator Fault: {e}")
         return None
 
-# --- UI: FLEET GATEWAY ---
+# --- START FLEET GATEWAY ---
 st.markdown("---")
 st.markdown("## FLEET GATEWAY")
 st.caption("Institutional Intake Layer | Forensic Mode: ENABLED | Atomic State Control")
 
-# --- ZONE A: GATEWAY RECEIPT & SIMULATOR ---
-with st.expander("Inbound Telemetry Log (API Monitoring)", expanded=False):
-    st.info("Status: Listening | Forensic Recipe: v1 | Time: UTC")
-    
-    st.write("### 📥 Institutional Data Intake (OVD/DCS)")
-    
-    # 1. Dateiupload (Multiple Files für CSV-Pakete)
+# Definition der stabilen Tab-Struktur
+tab_upload, tab_pool = st.tabs(["Upload and Activity", "Eligibility Pool"])
+
+# --- TAB 1: UPLOAD AND ACTIVITY ---
+with tab_upload:
+    st.write("### Institutional Data Intake (OVD/DCS)")
     uploaded_files = st.file_uploader(
         "Upload OVD Package (CSV/TXT/JSON)", 
-        type=['csv', 'txt', 'json'], 
-        accept_multiple_files=True,
-        key="ovd_uploader_main"
+        accept_multiple_files=True, 
+        key="uploader_gateway"
     )
-    
+
     if uploaded_files:
         if st.button("Validate and Seal Data", width='stretch', type="primary"):
             try:
-                # 2. Parsing-Layer (Hier rufen wir unsere neue Klasse auf)
-                # Fall A: Einzelne JSON
-                if len(uploaded_files) == 1 and uploaded_files[0].name.endswith('.json'):
-                    import json
-                    raw_data = json.load(uploaded_files[0])
-                # Fall B: CSV/TXT-Paket von Kristof
-                else:
-                    raw_data = OVDPackageParser.parse(uploaded_files)
-                
-                # 3. Gateway-Prozess (Dein bestehendes Gateway)
-                gateway = ComplianceGateway()
-                processed_record = gateway.process_intake(raw_data, "OVD_VOYAGE")
-                
-                # 4. Speichern in der Telemetry-Tabelle
-                with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                    conn.execute('''
-                        INSERT INTO telemetry_reports 
-                        (report_id, imo, vessel_name, raw_json, canonical_base, engine_input, received_at, receipt_hash, status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        processed_record['dataset_metadata']['dataset_id'],
-                        processed_record['engine_input']['vessel_imo'],
-                        f"OVD-Package-{processed_record['engine_input']['vessel_imo']}", 
-                        json.dumps(raw_data), 
-                        json.dumps(processed_record['full_audit_payload']['hash_input'], default=str), 
-                        json.dumps(processed_record['engine_input'], default=str), 
-                        processed_record['dataset_metadata']['intake_timestamp'],
-                        processed_record['dataset_metadata']['receipt_hash'],
-                        "ELIGIBLE"
-                    ))
-                    conn.commit()
-                
-                st.session_state['msg_intake'] = f"OVD Package successfully imported and sealed. Report ID: {processed_record['dataset_metadata']['dataset_id'][:8]}..."
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"❌ Intake Error: {str(e)}")
+                # Zentraler Aufruf an den Service (Block 1 Idempotenz)
+                result = intake_service.process_upload(uploaded_files)
 
-if 'msg_intake' in st.session_state:
-    st.success(f"✅ {st.session_state['msg_intake']}")
-    if st.button("✓ OK – Confirm Receipt", key="ack_intake", type="primary"):
-        del st.session_state['msg_intake']
-        st.rerun()
+                if result["status"] == "SUCCESS":
+                    st.session_state['msg_intake'] = result["message"]
+                    st.rerun()
+                elif result["status"] == "ALREADY_EXISTS":
+                    st.warning(result["message"])
+                    st.info("No further action required. The integrity of the ledger is maintained.")
+                else:
+                    st.error(f"Intake Error: {result['message']}")
+            except Exception as e:
+                st.error(f"Critical System Error during Intake: {str(e)}")
+
+    # Erfolgsmeldung nach dem Rerun
+    if 'msg_intake' in st.session_state:
+        st.success(st.session_state['msg_intake'])
+        if st.button("Confirm Receipt", key="ack_intake", type="primary"):
+            del st.session_state['msg_intake']
+            st.rerun()
+
+    st.write("---")
+    
+    # --- GOVERNANCE REVIEW (BLOCK 2) ---
+    st.write("### Pending Governance Review")
+    pending = intake_service.get_pending_reports()
+    
+    if pending:
+        for r in pending:
+            with st.expander(f"Review Required: {r[2]} (IMO: {r[1]})"):
+                st.info(f"Received at: {r[6]} UTC")
+                gov_comment = st.text_input("Auditor Comment", key=f"cmt_{r[0]}")
+                c1, c2 = st.columns(2)
+                
+                if c1.button("Approve", key=f"app_{r[0]}", type="primary"):
+                    if intake_service.update_status(r[0], "ELIGIBLE", "Andreas", "OWNER", gov_comment):
+                        st.rerun()
+                
+                if c2.button("Reject", key=f"rej_{r[0]}"):
+                    if intake_service.update_status(r[0], "REJECTED", "Andreas", "OWNER", gov_comment):
+                        st.rerun()
+    else:
+        st.success("No pending reviews. Governance queue is clear.")
 
     st.write("---")
     st.write("**Recent Activity (Last 5 Events):**")
-    with sqlite3.connect(LEDGER_DB_PATH) as conn:
-        reports = conn.cursor().execute('SELECT * FROM telemetry_reports ORDER BY received_at DESC LIMIT 5').fetchall()
-    for r in reports:
-        st.code(f"ID: {r[0]} | HASH: {r[5][:12]}... | STATUS: {r[6]}", language="bash")
+    recent_activity = intake_service.get_recent_reports(limit=5)
+    for r in recent_activity:
+        st.code(f"ID: {r[0][:8]}... | HASH: {r[7][:12]}... | STATUS: {r[8]}", language="bash")
 
-# --- ZONE B: VALIDATION BUFFER ---
-st.markdown("### Validation Buffer")
-with sqlite3.connect(LEDGER_DB_PATH) as conn:
-    pending_reports = conn.cursor().execute(
-        'SELECT * FROM telemetry_reports WHERE status IN ("RECEIVED", "FLAGGED", "UNDER_REVIEW") ORDER BY received_at DESC'
-    ).fetchall()
-
-if not pending_reports:
-    st.info("No active validation tasks. Fleet Telemetry is fully processed.")
-else:
-    for r in pending_reports:
-        with st.expander(f"ACTION REQUIRED: {r[2]} (ID: {r[0]})"):
-            
-            if r[6] == "RECEIVED":
-                with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                    conn.cursor().execute(
-                        'UPDATE telemetry_reports SET status="UNDER_REVIEW" WHERE report_id=? AND status="RECEIVED"', 
-                        (r[0],)
-                    )
-                    conn.commit()
-            
-            payload_dict = json.loads(r[3])
-            col_data, col_val = st.columns([2, 1])
-            
-            with col_data:
-                st.write("**Raw Payload (Canonical View):**")
-                st.json(payload_dict)
-                st.caption(f"Received at: {r[4]} (UTC) | Hash: `{r[5]}`")
-            
-            with col_val:
-                st.write("**Automated Scrutiny:**")
-                if payload_dict.get("fuel_mt", 0) > 15:
-                    st.error("ANOMALY: High Consumption Flag")
-                else:
-                    st.success("No automated anomaly detected")
-
-            st.markdown("---")
-            
-            # --- ZONE C: GOVERNANCE DECISION ---
-            with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                current_status = conn.cursor().execute('SELECT status FROM telemetry_reports WHERE report_id=?', (r[0],)).fetchone()[0]
-            
-            if current_status in ["ELIGIBLE", "REJECTED"]:
-                st.warning(f"Finalized as: {current_status}")
-            else:
-                st.write("**Compliance Decision (Manual Attestation)**")
-                comment = st.text_input("Decision Reasoning (Mandatory)", key=f"cmt_{r[0]}", placeholder="Required for forensic audit...")
-                
-                c1, c2 = st.columns(2)
-                decision_time = datetime.now(timezone.utc).isoformat()
-                user, role = st.session_state.get("active_user"), st.session_state.get("active_role")
-
-                if c1.button("Approve for Compliance Use", key=f"app_{r[0]}", width='stretch', type="primary"):
-                    if comment:
-                        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                            res = conn.cursor().execute('''
-                                UPDATE telemetry_reports 
-                                SET status='ELIGIBLE', reviewed_by=?, reviewed_role=?, reviewed_at=?, governance_comment=?
-                                WHERE report_id=? AND status IN ("RECEIVED", "UNDER_REVIEW", "FLAGGED")
-                            ''', (user, role, decision_time, comment, r[0]))
-                            conn.commit()
-                            if res.rowcount > 0: st.rerun()
-                            else: st.error("Race Condition: Record already processed.")
-                    else: st.warning("Reasoning mandatory.")
-                    
-                if c2.button("Reject / Non-Material", key=f"rej_{r[0]}", width='stretch'):
-                    if comment:
-                        with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                            res = conn.cursor().execute('''
-                                UPDATE telemetry_reports 
-                                SET status='REJECTED', reviewed_by=?, reviewed_role=?, reviewed_at=?, governance_comment=?
-                                WHERE report_id=? AND status IN ("RECEIVED", "UNDER_REVIEW", "FLAGGED")
-                            ''', (user, role, decision_time, comment, r[0]))
-                            conn.commit()
-                            if res.rowcount > 0: st.rerun()
-                            else: st.error("Race Condition Error.")
-                    else: st.warning("Reasoning mandatory.")
-
-# --- PERSISTENCE VIEW ---
-with st.expander("View Eligibility Pool (Released Data)", expanded=False):
-    with sqlite3.connect(LEDGER_DB_PATH) as conn:
-        eligible_data = conn.cursor().execute('''
-            SELECT report_id, vessel_name, reviewed_at, reviewed_by, governance_comment 
-            FROM telemetry_reports WHERE status="ELIGIBLE"
-        ''').fetchall()
+# --- TAB 2: ELIGIBILITY POOL (BLOCK 3) ---
+with tab_pool:
+    st.write("### Verified and Released Telemetry (Audit View)")
+    eligible_data = intake_service.get_eligible_reports()
+    
     if eligible_data:
-        st.table(eligible_data)
+        cols = ["Report ID (UUID)", "Receipt Hash (SHA-256)", "Vessel Name", "Review Date (UTC)", "Auditor"]
+        # Wir nutzen nur so viele Spalten-Namen, wie Daten geliefert werden
+        df_eligible = pd.DataFrame(eligible_data, columns=cols[:len(eligible_data[0])]) 
+        st.dataframe(df_eligible, width='stretch', hide_index=True)
     else:
-        st.write("The Eligibility Pool is currently empty.")
+        st.info("No records in Eligibility Pool. Please ensure data is marked as ELIGIBLE.")
+
+# --- END FLEET GATEWAY ---
+
+# --- DEBUG: ENGINE SNAPSHOT TEST (BLOCK A) ---
+st.markdown("---")
+st.write("### Debug: Engine Snapshot Calculation")
+
+# Wir testen hier hart auf 2026 für die Validierung
+test_snapshot = asset_engine.get_fleet_snapshot("2026")
+
+if "error" in test_snapshot:
+    st.error(f"Engine Error: {test_snapshot['error']}")
+else:
+    # Zeigt die Datenstruktur und den Fingerprint
+    st.json(test_snapshot)
+    st.info(f"Stable Fingerprint: {test_snapshot['calculation_fingerprint']}")
+
 
 # ==============================================================================
 # MODULE 4: ASSET GOVERNANCE CENTER (v1.5-Fortress-Institutional-Final)
@@ -1636,95 +1569,48 @@ else:
                     
                     comment = st.text_input("Certification Statement", key="cert_final_gold_input", placeholder="Purpose of Issuance...")
                     
-                    # --- DUAL-DB COMMIT: WRITE TO ASSET REPO ---
+                    # --- BLOCK C: COMMIT GUARD SERVICE ---
                     if st.button("EXECUTE INSTITUTIONAL COMMIT", type="primary", width='stretch', key="btn_execute_gold"):
                         if not comment:
                             st.warning("Mandatory: Attestation Statement required.")
+                        elif not commit_guard:
+                            st.error("SYSTEM ERROR: CommitGuardService not initialized.")
                         else:
-                            try:
-                                # A. Payload vorbereiten
-                                certificate_payload = {
-                                    "fingerprint": results["fingerprint"], 
-                                    "metrics": results["metrics"],
-                                    "engine_version": results["engine_version"],
-                                    "rule_hash": results["rule_hash"],
-                                    "receipt_hashes": results["receipt_hashes"],
-                                    "operator": st.session_state.get("active_role", "UNKNOWN"),
-                                    "statement": comment,
-                                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                                }
+                            
+                            role = st.session_state.get("active_role", "GUEST")
 
-                                # B. ASSET DB PREPARATION (RC1 Schema)
-                                with sqlite3.connect(ASSET_DB_PATH) as conn:
-                                    # 1. Tabelle mit NEUEM Schema sicherstellen (für Modul 10 Kompatibilität)
-                                    conn.execute("""
-                                        CREATE TABLE IF NOT EXISTS ledger_entries (
-                                            seq INTEGER PRIMARY KEY,
-                                            institution_id TEXT NOT NULL,
-                                            block_type TEXT NOT NULL,
-                                            reporting_year INTEGER NOT NULL,
-                                            prev_hash TEXT NOT NULL,
-                                            reg_hash TEXT,
-                                            payload_json TEXT NOT NULL,
-                                            current_hash TEXT NOT NULL,
-                                            signature TEXT NOT NULL,
-                                            timestamp_utc TEXT NOT NULL
-                                        )
-                                    """)
-                                    # Sperrliste sicherstellen
-                                    conn.execute("CREATE TABLE IF NOT EXISTS certified_receipts (receipt_hash TEXT PRIMARY KEY, certificate_block_hash TEXT)")
-                                    
-                                    # 2. Double Spending Check
-                                    placeholders = ', '.join(['?'] * len(results["receipt_hashes"]))
-                                    query = f"SELECT receipt_hash FROM certified_receipts WHERE receipt_hash IN ({placeholders})"
-                                    existing = conn.execute(query, results["receipt_hashes"]).fetchall()
-                                    if existing: raise ValueError(f"DOUBLE SPENDING DETECTED: {existing}")
-
-                                    # 3. Chain-Logik (Lightweight) für Asset DB
-                                    head = conn.execute("SELECT seq, current_hash FROM ledger_entries ORDER BY seq DESC LIMIT 1").fetchone()
-                                    new_seq = (head[0] + 1) if head else 1
-                                    prev_hash = head[1] if head else ("0" * 64)
-
-                                    # 4. Block bauen
-                                    block_type = "CERTIFICATION"
-                                    # Signieren (Wir nutzen den Session Key für das Asset)
-                                    # Für die Asset DB berechnen wir den Hash, signieren ihn, schreiben ihn aber manuell.
-                                    # Canonical JSON Body für Hash
-                                    body_for_hash = {
-                                        "seq": new_seq, "institution_id": "VELONAUT_LABS",
-                                        "block_type": block_type, "reporting_year": selected_year,
-                                        "prev_hash": prev_hash, "reg_hash": None, "payload": certificate_payload
-                                    }
-                                    
-                                    # Helper für Canonical JSON
-                                    import json
-                                    c_json = json.dumps(body_for_hash, sort_keys=True, separators=(',', ':')).encode('utf-8')
-                                    new_block_hash = hashlib.sha256(c_json).hexdigest()
-                                    signature = signing_key.sign(new_block_hash.encode('utf-8')).signature.hex()
-                                    ts_now = datetime.now(timezone.utc).isoformat()
-
-                                    # 5. INSERT (Asset DB)
-                                    conn.execute("""
-                                        INSERT INTO ledger_entries 
-                                        (institution_id, block_type, reporting_year, prev_hash, reg_hash, payload_json, current_hash, signature, timestamp_utc)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                    """, ("VELONAUT_LABS", block_type, selected_year, prev_hash, None, json.dumps(certificate_payload), new_block_hash, signature, ts_now))
-
-                                    # 6. Update Sperrliste & Status
-                                    for r_hash in results["receipt_hashes"]:
-                                        conn.execute("INSERT INTO certified_receipts VALUES (?, ?)", (r_hash, new_block_hash))
-                                    conn.execute(f"UPDATE telemetry_reports SET status='CERTIFIED' WHERE receipt_hash IN ({placeholders})", results["receipt_hashes"])
-                                    
-                                    conn.commit()
-
-                                # C. PDF GENERIERUNG (Session State)
+                            # Fix: Übergabe von Rolle und User aus der Session an den Service
+                            auth_context = auth_service.get_commit_context(
+                                input_pin=access_pin,
+                                role=st.session_state.get("active_role", "GUEST"),
+                                user=st.session_state.get("active_user", "UNKNOWN")
+)                          
+                            guard_result = commit_guard.execute_certification_commit(
+                                reporting_year=selected_year,
+                                auth_context=auth_context,
+                                signer_func=lambda h: signing_key.sign(h).signature
+                            )
+                            
+                            if guard_result["status"] == "SUCCESS":
+                                import sqlite3 as _sq
+                                with _sq.connect(ASSET_DB_PATH) as _conn:
+                                    _row = _conn.execute(
+                                        "SELECT current_hash, signature FROM ledger_entries WHERE seq = ?",
+                                        (guard_result["block_seq"],)
+                                    ).fetchone()
+                                new_block_hash = _row[0]
+                                new_signature  = _row[1]
+                                
                                 formatted_payload_for_pdf = {
                                     "header": {"certificate_id": new_block_hash[:12], "rules": {"target_factor": "3.0"}},
-                                    "calculation": {"engine_version": results["engine_version"], "metrics": results["metrics"]}
+                                    "calculation": {
+                                        "engine_version": results["engine_version"],
+                                        "metrics": results["metrics"]
+                                    }
                                 }
                                 block_record_sim = {
                                     "block_hash": new_block_hash,
-                                    "signature": signature,
+                                    "signature": new_signature,
                                     "reporting_year": selected_year,
                                     "payload_json": json.dumps(formatted_payload_for_pdf)
                                 }
@@ -1733,13 +1619,23 @@ else:
                                 st.session_state["cert_success"] = True
                                 st.session_state.last_cert_id = new_block_hash[:12]
                                 st.session_state.last_pdf = pdf_bytes.getvalue()
-                                st.session_state.last_json = json.dumps(certificate_payload, indent=2)
-
-                                st.session_state['msg_commit'] = f"Institutional asset successfully committed to ledger. Block ID: {new_block_hash[:16]}..."
+                                st.session_state.last_json = json.dumps({
+                                    "freeze_hash": guard_result["freeze_hash"],
+                                    "payload_fingerprint": guard_result["payload_fingerprint"],
+                                    "block_seq": guard_result["block_seq"],
+                                    "certified_receipts_locked": guard_result["certified_receipts_locked"],
+                                    "metrics": results["metrics"]
+                                }, indent=2)
+                                st.session_state["msg_commit"] = (
+                                    f"Institutional asset committed. Block SEQ: {guard_result['block_seq']} | "
+                                    f"Receipts locked: {guard_result['certified_receipts_locked']}"
+                                )
                                 st.rerun()
-
-                            except Exception as e:
-                                st.error(f"COMMIT REJECTED: {str(e)}")
+                            elif guard_result["status"] == "CRITICAL_PARTIAL_WRITE":
+                                st.error(f"CRITICAL: {guard_result['message']}")
+                                st.error("Manuelle Intervention erforderlich. System anhalten.")
+                            else:
+                                st.error(f"COMMIT REJECTED: {guard_result['message']}")
 
                 if 'msg_commit' in st.session_state:
                     st.success(f"✅ {st.session_state['msg_commit']}")
@@ -1860,31 +1756,23 @@ if balance > 0:
             "uuid": str(uuid.uuid4())
         }
 
-        new_hash = commit_regulatory_snapshot("EVENT", payload, selected_year)
+        new_hash = commit_guard.commit_regulatory_snapshot("EVENT", payload, selected_year, signing_key)
         
         if new_hash:
-            # ERST JETZT: Den Preis in die Historien-Tabelle loggen
+            # Marktdaten über den Service archivieren
             try:
-                with sqlite3.connect(LEDGER_DB_PATH) as conn:
-                    cursor = conn.cursor()
-                    # INSERT OR IGNORE verhindert Fehler bei Duplikaten (wegen UNIQUE Hash)
-                    cursor.execute('''
-                        INSERT OR IGNORE INTO market_prices (source, price, currency, confidence_level, timestamp_utc, retrieval_hash)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (
-                        market_snapshot['source'], 
-                        float(market_snapshot['price']), 
-                        market_snapshot['currency'], 
-                        market_snapshot['confidence_level'], 
-                        market_snapshot['timestamp_utc'], 
-                        market_snapshot['snapshot_hash']
-                    ))
-                    conn.commit()
+                engine_service.log_market_price(LEDGER_DB_PATH, {
+                    "source": market_snapshot['source'],
+                    "price": float(market_snapshot['price']),
+                    "currency": market_snapshot['currency'],
+                    "confidence_level": market_snapshot['confidence_level'],
+                    "timestamp_utc": market_snapshot['timestamp_utc'],
+                    "retrieval_hash": market_snapshot['snapshot_hash']
+                })
             except Exception as e:
-                # Wir warnen nur, da der Ledger-Eintrag selbst ja erfolgreich war
                 st.warning(f"Market History Archive failed, but Ledger is secure: {e}")
 
-            st.success(f"REGULATORY COMMIT SUCCESS: Block {new_hash[:16]}...")
+            st.success(f"REGULATORY COMMIT SUCCESS: Block SEQ {new_hash}...")
             time.sleep(1)
             st.rerun()
 else:
@@ -2091,6 +1979,52 @@ with st.expander(" INSTITUTIONAL AUDIT MONITOR", expanded=False):
     st.divider()
     st.caption("Verification Method: SHA-256 Atomic Cross-Check | Status: 🟢 SYSTEM NOMINAL")
 
+# --- BLOCK D: PERIOD SEAL UI ---
+with sqlite3.connect(ASSET_DB_PATH) as _conn:
+    _cert_count = _conn.execute(
+        "SELECT COUNT(*) FROM ledger_entries "
+        "WHERE block_type = 'CERTIFICATION' AND reporting_year = ?",
+        (selected_year,)
+    ).fetchone()[0]
+    _seal_exists = _conn.execute(
+        "SELECT 1 FROM ledger_entries "
+        "WHERE block_type = 'PERIOD_SEAL' AND reporting_year = ?",
+        (selected_year,)
+    ).fetchone()
+
+if st.session_state.get("active_role") == "OWNER":
+    st.write("---")
+    st.subheader(f"Institutional Period Seal {selected_year}")
+    
+    if _seal_exists:
+        st.success(f"✅ Period {selected_year} is officially sealed and immutable.")
+    elif _cert_count == 0:
+        st.info(f"ℹ️ No certifications found for {selected_year}. Seal will be available after first commit.")
+    else:
+        st.warning("⚠️ ATTENTION: A Period Seal is irreversible. It will freeze all data for this year.")
+        
+        if st.button("EXECUTE PERIOD SEAL", type="primary", use_container_width=True):
+            auth_context = auth_service.get_commit_context(
+                input_pin=access_pin,
+                role=st.session_state.get("active_role"),
+                user=st.session_state.get("active_user")
+            )
+            
+            seal_result = commit_guard.execute_period_seal(
+                reporting_year=selected_year,
+                auth_context=auth_context,
+                signer_func=lambda h: signing_key.sign(h).signature
+            )
+            
+            if seal_result["status"] == "SUCCESS":
+                st.success(seal_result["message"])
+                st.code(f"Final Seal Hash: {seal_result['seal_freeze_hash']}", language="bash")
+                st.balloons()
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error(seal_result["message"])
+                
 # --- INSTITUTIONAL FOOTER ---
 st.divider()
 st.caption("© 2026 VELONAUT LABS | Institutional Prototyping | Ed25519 Secured")
