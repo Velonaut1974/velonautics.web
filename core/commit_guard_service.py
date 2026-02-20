@@ -50,35 +50,32 @@ class CommitGuardService:
     def execute_certification_commit(
         self,
         reporting_year: int,
-        role: str,
-        pin_valid: bool,
+        auth_context: dict,
         signer_func
     ) -> dict:
         """
         Führt einen vollständig gesicherten Certification Commit durch.
-
-        Returns
-        -------
-        dict mit:
-            "status": "SUCCESS" | "ERROR"
-            "message": str
-            "freeze_hash": str (nur bei SUCCESS)
-            "block_seq": int (nur bei SUCCESS)
+        Nutzt den AuthService Context für maximale Governance.
         """
 
         # ==================================================================
-        # SCHLOSS 1 – AUTHORITY VALIDATION
+        # SCHLOSS 1 – AUTHORITY VALIDATION (DB-Grounded)
         # ==================================================================
-        if role not in ("OWNER", "AUDITOR"):
+        actor = auth_context.get("user")
+        role = auth_context.get("role")
+
+        # DER ENTSCHEIDENDE DB-CHECK: Wir rufen die neue Funktion von unten auf
+        if not self._is_authority_valid(actor, role):
             return {
                 "status": "ERROR",
-                "message": f"AUTHORITY_DENIED: Role '{role}' is not authorized for certification commits."
+                "message": f"AUTHORITY_FORGERY_DETECTED: Mandat für '{actor}' als '{role}' nicht in der Registry gefunden."
             }
 
-        if not pin_valid:
+        allowed_roles = ["OWNER", "AUDITOR"]
+        if role not in allowed_roles:
             return {
                 "status": "ERROR",
-                "message": "AUTHORITY_DENIED: PIN validation failed."
+                "message": f"AUTHORITY_DENIED: Rolle '{role}' ist nicht für Commits autorisiert."
             }
 
         # ==================================================================
@@ -276,4 +273,224 @@ class CommitGuardService:
             "payload_fingerprint": payload_fingerprint,
             "block_seq": block_seq,
             "certified_receipts_locked": len(receipt_hashes)
+        }
+    def commit_regulatory_snapshot(self, event_type, payload, year, signing_key):
+        """
+        Service-seitige Ausführung von regulatorischen Snapshots.
+        Hier greift die Hard-Whitelist des Lockdowns.
+        """
+        ALLOWED_SNAPSHOT_TYPES = ["REGULATORY_ATTESTATION", "EVENT"]
+        FORBIDDEN_TYPES = ["CERTIFICATION", "PERIOD_SEAL", "TRANSFER"]
+
+        if event_type in FORBIDDEN_TYPES:
+            raise Exception(f"CRITICAL GOVERNANCE BREACH: Type '{event_type}' forbidden here.")
+        
+        if event_type not in ALLOWED_SNAPSHOT_TYPES:
+            raise Exception(f"SECURITY ALERT: Unauthorized type '{event_type}' attempted.")
+
+        try:
+            # Wir nutzen den gov_ledger, der bereits im Service bekannt ist
+            block_hash = self.gov_ledger.add_entry(
+                event_type,
+                payload,
+                year,
+                lambda h: signing_key.sign(h).signature
+            )
+            return block_hash
+        except Exception as e:
+            return None
+
+    def _is_authority_valid(self, actor, role):
+        """
+        Interne DB-Validierung: Prüft das Mandat gegen die Authority Registry.
+        """
+        import sqlite3
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Wir nutzen den Pfad der Governance-DB
+        with sqlite3.connect(self.gov_ledger.db_path) as conn:
+            query = '''
+                SELECT 1 FROM authority_registry 
+                WHERE actor = ? AND role = ? 
+                AND valid_from <= ? 
+                AND (valid_until IS NULL OR valid_until >= ?)
+            '''
+            res = conn.execute(query, (actor, role, now, now)).fetchone()
+            return res is not None
+        
+def execute_period_seal(
+        self,
+        reporting_year: int,
+        auth_context: dict,
+        signer_func
+    ) -> dict:
+        """
+        Block D – Institutional Period Seal.
+        Schließt eine Reporting-Periode endgültig.
+        Five-Lock: Authority → Completion → Certification Presence → Freeze Hash → Atomic Write
+        """
+        # ==================================================================
+        # SCHLOSS 1 – AUTHORITY (DB-Grounded)
+        # ==================================================================
+        actor = auth_context.get("user")
+        role = auth_context.get("role")
+
+        if not auth_context.get("authorized"):
+            return {"status": "ERROR", "message": "AUTHORITY_DENIED: PIN not valid."}
+
+        if role != "OWNER":
+            return {"status": "ERROR", "message": f"AUTHORITY_DENIED: Only OWNER may seal. Got '{role}'."}
+
+        if not self._is_authority_valid(actor, role):
+            return {"status": "ERROR", "message": f"AUTHORITY_FORGERY_DETECTED: '{actor}' as '{role}' not in Registry."}
+
+        # ==================================================================
+        # SCHLOSS 2 – COMPLETION CHECK (Periodensicher)
+        # ==================================================================
+        try:
+            with sqlite3.connect(self.asset_db_path) as conn:
+                # Uncertified Reports: status ELIGIBLE und nicht in certified_receipts
+                rows = conn.execute(
+                    "SELECT report_id, engine_input, receipt_hash FROM telemetry_reports "
+                    "WHERE status = 'ELIGIBLE' "
+                    "AND receipt_hash NOT IN (SELECT receipt_hash FROM certified_receipts)"
+                ).fetchall()
+
+                year_str = str(reporting_year)
+                uncertified_in_year = []
+
+                for r_id, engine_json, r_hash in rows:
+                    try:
+                        period_start = json.loads(engine_json).get(
+                            "reporting_period", {}
+                        ).get("start", "")
+                        if period_start.startswith(year_str):
+                            uncertified_in_year.append(r_id)
+                    except Exception:
+                        # Im Zweifel (Formatfehler) blockieren wir zur Sicherheit
+                        uncertified_in_year.append(r_id)
+
+                if uncertified_in_year:
+                    return {
+                        "status": "ERROR",
+                        "message": (
+                            f"SEAL_BLOCKED: {len(uncertified_in_year)} uncertified report(s) "
+                            f"for {reporting_year} still ELIGIBLE."
+                        )
+                    }
+        except Exception as e:
+            return {"status": "ERROR", "message": f"DB_ERROR in completion check: {str(e)}"}
+
+        # ==================================================================
+        # SCHLOSS 3 – CERTIFICATION PRESENCE + IDEMPOTENZ
+        # ==================================================================
+        try:
+            with sqlite3.connect(self.asset_db_path) as conn:
+                # Prüfen, ob mindestens eine Zertifizierung existiert
+                cert_count = conn.execute(
+                    "SELECT COUNT(*) FROM ledger_entries "
+                    "WHERE block_type = 'CERTIFICATION' AND reporting_year = ?",
+                    (reporting_year,)
+                ).fetchone()[0]
+
+                if cert_count == 0:
+                    return {
+                        "status": "ERROR",
+                        "message": f"SEAL_BLOCKED: No CERTIFICATION blocks found for {reporting_year}."
+                    }
+
+                # Idempotenz: Ist bereits ein Siegel vorhanden?
+                existing_seal = conn.execute(
+                    "SELECT current_hash FROM ledger_entries "
+                    "WHERE block_type = 'PERIOD_SEAL' AND reporting_year = ?",
+                    (reporting_year,)
+                ).fetchone()
+
+                if existing_seal:
+                    return {
+                        "status": "ERROR",
+                        "message": f"SEAL_BLOCKED: Period {reporting_year} already sealed. Idempotency guard active."
+                    }
+
+                # Den Hash der letzten Zertifizierung für das spätere Freeze-Binding holen
+                last_cert_hash = conn.execute(
+                    "SELECT current_hash FROM ledger_entries "
+                    "WHERE block_type = 'CERTIFICATION' AND reporting_year = ? "
+                    "ORDER BY seq DESC LIMIT 1",
+                    (reporting_year,)
+                ).fetchone()[0]
+
+        except Exception as e:
+            return {"status": "ERROR", "message": f"DB_ERROR in certification check: {str(e)}"}
+
+        # ==================================================================
+        # SCHLOSS 4 – SEAL FREEZE HASH (Chain Binding)
+        # ==================================================================
+        try:
+            # Wir holen den absolut letzten Hash der Kette (unabhängig vom Jahr)
+            # um das Siegel an die aktuelle Kettenposition zu fesseln.
+            latest_chain_hash = self.asset_ledger.get_latest_hash()
+            
+            # Der Freeze Hash kombiniert: Jahr + Letzte Zertifizierung + Anzahl + Kettenzustand
+            freeze_input = (
+                f"{reporting_year}"
+                f"|{last_cert_hash}"
+                f"|{cert_count}"
+                f"|{latest_chain_hash}"
+            )
+            seal_freeze_hash = hashlib.sha256(freeze_input.encode("utf-8")).hexdigest()
+            
+        except AttributeError:
+            # Falls get_latest_hash() im Ledger fehlt, nutzen wir eine Fallback-Abfrage
+            with sqlite3.connect(self.asset_db_path) as conn:
+                latest_chain_hash = conn.execute(
+                    "SELECT current_hash FROM ledger_entries ORDER BY seq DESC LIMIT 1"
+                ).fetchone()[0]
+                
+            freeze_input = (f"{reporting_year}|{last_cert_hash}|{cert_count}|{latest_chain_hash}")
+            seal_freeze_hash = hashlib.sha256(freeze_input.encode("utf-8")).hexdigest()
+        except Exception as e:
+            return {"status": "ERROR", "message": f"FREEZE_HASH_ERROR: {str(e)}"}
+
+        # ==================================================================
+        # SCHLOSS 5 – ATOMIC WRITE
+        # ==================================================================
+        payload = {
+            "reporting_year": reporting_year,
+            "total_certifications": cert_count,
+            "last_cert_block_hash": last_cert_hash,
+            "seal_freeze_hash": seal_freeze_hash,
+            "sealed_by": actor,
+            "sealed_at_utc": datetime.now(timezone.utc).isoformat()
+        }
+
+        try:
+            # Wir schreiben den Siegel-Block in die Asset Chain
+            block_seq = self.asset_ledger.add_entry(
+                block_type="PERIOD_SEAL",
+                payload=payload,
+                reporting_year=reporting_year,
+                signer_func=signer_func
+            )
+        except Exception as e:
+            return {"status": "ERROR", "message": f"LEDGER_WRITE_FAILED: {str(e)}"}
+
+        # Sofortige forensische Verifizierung beider Chains
+        try:
+            self.asset_ledger.verify_integrity()
+        except Exception as e:
+            return {"status": "ERROR", "message": f"ASSET_CHAIN_INTEGRITY_FAILURE after seal: {str(e)}"}
+
+        try:
+            self.gov_ledger.verify_integrity()
+        except Exception as e:
+            return {"status": "ERROR", "message": f"GOV_CHAIN_INTEGRITY_FAILURE after seal: {str(e)}"}
+
+        return {
+            "status": "SUCCESS",
+            "message": f"Period {reporting_year} sealed and both chains verified.",
+            "seal_freeze_hash": seal_freeze_hash,
+            "block_seq": block_seq,
+            "total_certifications": cert_count
         }

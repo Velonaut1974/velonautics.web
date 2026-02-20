@@ -62,3 +62,26 @@ class AssetEngine:
 
         except Exception as e:
             return {"error": str(e)}
+        
+    @staticmethod
+    def log_market_price(db_path, price_data): # Hier db_path hinzufügen
+        """
+        Archiviert Marktdaten in der market_prices Tabelle.
+        """
+        import sqlite3
+        with sqlite3.connect(db_path) as conn:
+            
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR IGNORE INTO market_prices 
+                (source, price, currency, confidence_level, timestamp_utc, retrieval_hash)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                price_data['source'],
+                price_data['price'],
+                price_data['currency'],
+                price_data['confidence_level'],
+                price_data['timestamp_utc'],
+                price_data['retrieval_hash']
+            ))
+            conn.commit()

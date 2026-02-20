@@ -312,8 +312,9 @@ class IntakeService:
     Kein st.*. Kein session_state. Nur Return-Values.
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, signer=None):
         self.db_path = db_path
+        self.signer = signer
         self._ensure_schema()
 
     def _ensure_schema(self):
@@ -355,6 +356,29 @@ class IntakeService:
                 )
             ''')
             conn.commit()
+
+
+    def add_simulated_report(self, report_data: dict) -> str:
+        """
+        Zentrale Methode für simulierte oder manuelle Telemetrie-Einträge.
+        Isoliert den Schreibvorgang vom UI.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                INSERT INTO telemetry_reports 
+                (report_id, imo, vessel_name, raw_json, received_at, receipt_hash, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                report_data['report_id'],
+                report_data['imo'],
+                report_data['vessel_name'],
+                report_data['raw_json'],
+                report_data['received_at'],
+                report_data['receipt_hash'],
+                "RECEIVED"
+            ))
+            conn.commit()
+        return report_data['report_id']
 
     def process_upload(self, uploaded_files) -> dict:
         """
@@ -474,12 +498,21 @@ class IntakeService:
 
         decision_time = datetime.now(timezone.utc).isoformat()
 
+        # --- SCHRITT 10: FORENSIC SEALING ---
+        seal_content = f"{report_id}|{new_status}|{user}|{decision_time}"
+        signature = "OFFLINE_OR_MANUAL"
+        
+        if self.signer:
+            # Hier passiert die echte Magie: Die digitale Signatur
+            signature = self.signer.sign(seal_content.encode()).hex()
+
         with sqlite3.connect(self.db_path) as conn:
             res = conn.cursor().execute('''
                 UPDATE telemetry_reports
-                SET status=?, reviewed_by=?, reviewed_role=?, reviewed_at=?, governance_comment=?
+                SET status=?, reviewed_by=?, reviewed_role=?, reviewed_at=?, 
+                    governance_comment=?, governance_signature=?
                 WHERE report_id=? AND status IN ("RECEIVED", "UNDER_REVIEW", "FLAGGED")
-            ''', (new_status, user, role, decision_time, comment, report_id))
+            ''', (new_status, user, role, decision_time, comment, signature, report_id))
             conn.commit()
 
         return res.rowcount > 0
